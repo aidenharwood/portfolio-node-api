@@ -19,22 +19,14 @@ export interface BlogPostMeta {
 function getMarkdownFiles(dir: string): string[] {
   return fs.readdirSync(dir).flatMap((file) => {
     const fullPath = path.join(dir, file);
-    const stat = fs.lstatSync(fullPath);
+    const stat = fs.statSync(fullPath);
     if (stat.isSymbolicLink()) {
       return [];
     }
     if (stat.isDirectory()) {
-      // Skip symlinked directories
-      if (fs.lstatSync(fullPath).isSymbolicLink()) {
-        return [];
-      }
       return getMarkdownFiles(fullPath);
     }
-    // Only include .md files that are not symlinks
-    if (file.endsWith(".md") && !stat.isSymbolicLink()) {
-      return [path.relative(POSTS_DIR, fullPath)];
-    }
-    return [];
+    return file.endsWith(".md") ? [path.relative(POSTS_DIR, fullPath)] : [];
   });
 }
 
@@ -53,8 +45,9 @@ export function getAllPostsMeta() {
         date: formatDate(
           attributes.date || file.match(/\d{4}-\d{2}-\d{2}/)?.[0] || ""
         ),
-        slug,
         excerpt: attributes.excerpt || body.slice(0, 120) + "...",
+        slug,
+        file,
       };
     })
     .sort((a, b) => (a.date > b.date ? 1 : -1));
