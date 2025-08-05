@@ -7,8 +7,8 @@ RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
-RUN npm i -g serve
-COPY ./package.json ./
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 EXPOSE 4000
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
