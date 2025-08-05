@@ -24,9 +24,17 @@ function getMarkdownFiles(dir: string): string[] {
       return [];
     }
     if (stat.isDirectory()) {
+      // Skip symlinked directories
+      if (fs.lstatSync(fullPath).isSymbolicLink()) {
+        return [];
+      }
       return getMarkdownFiles(fullPath);
     }
-    return file.endsWith(".md") ? [path.relative(POSTS_DIR, fullPath)] : [];
+    // Only include .md files that are not symlinks
+    if (file.endsWith(".md") && !stat.isSymbolicLink()) {
+      return [path.relative(POSTS_DIR, fullPath)];
+    }
+    return [];
   });
 }
 
