@@ -32,7 +32,7 @@ jobs:
       - uses: aidenharwood/portfolio-action-helm-update-image@v1
         with:
           target_repo: aidenharwood/portfolio-helm-website
-          repo_token: ${{ secrets.GH_TOKEN }}
+          repo_token: ${{ secrets.GH_PAT }}
           registry: ghcr.io
           image_name: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
           yaml_file: templates/application.portfolio-api.yaml
