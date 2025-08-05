@@ -19,7 +19,11 @@ export interface BlogPostMeta {
 function getMarkdownFiles(dir: string): string[] {
   return fs.readdirSync(dir).flatMap((file) => {
     const fullPath = path.join(dir, file);
-    if (fs.statSync(fullPath).isDirectory()) {
+    const stat = fs.statSync(fullPath);
+    if (stat.isSymbolicLink()) {
+      return [];
+    }
+    if (stat.isDirectory()) {
       return getMarkdownFiles(fullPath);
     }
     return file.endsWith(".md") ? [path.relative(POSTS_DIR, fullPath)] : [];
