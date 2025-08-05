@@ -47,7 +47,6 @@ export function getAllPostsMeta() {
         ),
         slug,
         excerpt: attributes.excerpt || body.slice(0, 120) + "...",
-        file,
       };
     })
     .sort((a, b) => (a.date > b.date ? 1 : -1));
