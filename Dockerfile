@@ -10,4 +10,4 @@ WORKDIR /app
 RUN npm i -g serve
 COPY --from=builder /app/dist ./dist
 EXPOSE 4000
-CMD ["serve", "-s", "dist"]
+CMD ["npm", "run", "start"]
