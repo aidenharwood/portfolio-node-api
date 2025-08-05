@@ -16,8 +16,18 @@ export interface BlogPostMeta {
   file: string;
 }
 
+function getMarkdownFiles(dir: string): string[] {
+  return fs.readdirSync(dir).flatMap((file) => {
+    const fullPath = path.join(dir, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      return getMarkdownFiles(fullPath).map((f) => path.relative(POSTS_DIR, f));
+    }
+    return file.endsWith(".md") ? [path.relative(POSTS_DIR, fullPath)] : [];
+  });
+}
+
 export function getAllPostsMeta() {
-  const files = fs.readdirSync(POSTS_DIR).filter((f) => f.endsWith(".md"));
+  const files = getMarkdownFiles(POSTS_DIR);
   return files
     .map((file) => {
       const raw = fs.readFileSync(path.join(POSTS_DIR, file), "utf-8");
