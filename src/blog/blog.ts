@@ -9,13 +9,18 @@ const POSTS_DIR = path.join(process.cwd(), "blog");
 
 marked.use({
   renderer: {
-      code(this, code) {
-          const lang = code.lang;
-          const text = code.text;
-          if (lang === 'mermaid') return `<pre class="mermaid">${text}</pre>`;
-          return `<pre>${text}</pre>`;
-      }
-  }
+    heading({ text, depth }) {
+      // Use slugify for clean, predictable IDs
+      const id = slugify(text, { lower: true, strict: true });
+      return `<section class="flex space-x-3"><h${depth} id="${id}">${text}</h${depth}> <a href="#${id}" class="pi pi-link"></a></section>`;
+    },
+    code(this, code) {
+      const lang = code.lang;
+      const text = code.text;
+      if (lang === "mermaid") return `<pre class="mermaid">${text}</pre>`;
+      return `<pre>${text}</pre>`;
+    },
+  },
 });
 
 export interface BlogPostMeta {
