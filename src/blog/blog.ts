@@ -7,6 +7,17 @@ import { marked } from "marked";
 
 const POSTS_DIR = path.join(process.cwd(), "blog");
 
+marked.use({
+  renderer: {
+      code(this, code) {
+          const lang = code.lang;
+          const text = code.text;
+          if (lang === 'mermaid') return `<pre class="mermaid">${text}</pre>`;
+          return `<pre>${text}</pre>`;
+      }
+  }
+});
+
 export interface BlogPostMeta {
   title: string;
   date: string;
@@ -40,17 +51,19 @@ export function getAllPostsMeta() {
         lower: true,
         strict: true,
       });
+      const dateStr =
+        attributes.date || file.match(/\d{4}-\d{2}-\d{2}/)?.[0] || "";
+      const dateEpoch = dateStr ? new Date(dateStr).getTime() : 0;
       return {
         title: attributes.title || file,
-        date: formatDate(
-          attributes.date || file.match(/\d{4}-\d{2}-\d{2}/)?.[0] || ""
-        ),
+        date: formatDate(dateStr),
+        dateEpoch,
         excerpt: attributes.excerpt || body.slice(0, 120) + "...",
         slug,
         file,
       };
     })
-    .sort((a, b) => (a.date > b.date ? 1 : -1));
+    .sort((a, b) => b.dateEpoch - a.dateEpoch);
 }
 
 export function getPostBySlug(slug: string) {
