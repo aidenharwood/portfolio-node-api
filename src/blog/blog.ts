@@ -12,7 +12,7 @@ marked.use({
     heading({ text, depth }) {
       // Use slugify for clean, predictable IDs
       const id = slugify(text, { lower: true, strict: true });
-      return `<section class="flex space-x-3"><h${depth} id="${id}">${text}</h${depth}> <a href="#${id}" class="pi pi-link"></a></section>`;
+      return `<section class="flex space-x-3"><h${depth} id="${id}">${text}</h${depth}> <a href="#${id}" class="pi pi-link opacity-25"></a></section>`;
     },
     code(this, code) {
       const lang = code.lang;
