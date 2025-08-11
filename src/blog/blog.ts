@@ -18,7 +18,7 @@ marked.use({
       const lang = code.lang;
       const text = code.text;
       if (lang === "mermaid") return `<pre class="mermaid">${text}</pre>`;
-      return `<pre>${text}</pre>`;
+      return `<pre><code class="language-${lang}">${text}</code></pre>`;
     },
   },
 });
