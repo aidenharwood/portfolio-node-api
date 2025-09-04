@@ -15,10 +15,22 @@ marked.use({
       return `<section class="flex space-x-3"><h${depth} id="${id}">${text}</h${depth}> <a href="#${id}" class="pi pi-link opacity-25"></a></section>`;
     },
     code(this, code) {
-      const lang = code.lang;
-      const text = code.text;
+      const info = code.lang || "";
+      const text = code.text || "";
+      const parts = info.split(/\s+/).filter(Boolean);
+      const lang = parts[0] || "";
+      let filename = "";
+
       if (lang === "mermaid") return `<pre class="mermaid">${text}</pre>`;
-      return `<pre><code class="language-${lang}">${text}</code></pre>`;
+
+      parts.slice(1).forEach((p) => {
+        const m = p.match(/(?:filename|title)=(.+)/);
+        if (m) filename = decodeURIComponent(m[1]);
+      });
+
+      const header = filename ? `<div class="code-header">${filename}</div>` : "";
+
+      return `<pre>${header}<code class="language-${lang}">${text}</code></pre>`;
     },
   },
 });
