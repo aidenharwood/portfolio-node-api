@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/aidenharwood/portfolio-node-api#readme",
   "dependencies": {
+    "@opentelemetry/auto-instrumentations-node": "^0.62.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.2.0",
