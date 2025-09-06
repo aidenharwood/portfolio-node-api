@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { getAllPostsMeta, getPostBySlug } from './blog/blog'
+import { getStatusBadges } from './argocd/argocd'
 
 // Import or define your helper functions here
 // import { getAllPostsMeta, getPostBySlug } from './yourHelpers'
@@ -11,6 +12,11 @@ app.use(cors())
 app.get('/api/posts', (req: Request, res: Response) => {
   res.json(getAllPostsMeta())
 })
+
+app.get('/api/argocd/badges', (req: Request, res: Response) => {
+    getStatusBadges(res)
+  }
+)
 
 app.get('/api/posts/:slug', (req: Request, res: Response) => {
   const post = getPostBySlug(req.params.slug)
