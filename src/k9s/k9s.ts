@@ -1,5 +1,11 @@
 import { PassThrough } from "stream";
-import { createPod, deletePod, getPodStatus, createAttach } from "../utils/k8s";
+import {
+  createPod,
+  deletePod,
+  getPodStatus,
+  createAttach,
+  createExec,
+} from "../utils/k8s";
 import {
   CoreV1ApiCreateNamespacedPodRequest,
   V1Pod,
@@ -88,16 +94,6 @@ export function createWsServer(server: Server) {
 
       // Expect an init message first to choose pod/namespace/container/cmd
       ws.once("message", async (firstMsg: string | Buffer) => {
-        let init: any = {};
-        try {
-          if (typeof firstMsg === "string" && firstMsg.length)
-            init = JSON.parse(firstMsg);
-          else if (Buffer.isBuffer(firstMsg) && firstMsg.length)
-            init = JSON.parse(firstMsg.toString("utf8"));
-        } catch (e) {
-          // ignore - use defaults below
-        }
-
         ws.send(`Creating pod...\r\n`);
 
         console.log("Creating pod...");
@@ -107,14 +103,14 @@ export function createWsServer(server: Server) {
         const stdoutStream = new PassThrough();
         const stderrStream = new PassThrough();
 
-        const shutdown = async (reason: string) => {
+        const shutdown = (reason: string) => {
           console.log("Shutting down k9s session: ", reason);
           ws.send(`\r\nSession terminated: ${reason}\r\n`);
           if (!closed) {
             stdinStream.end();
             stderrStream.end();
             stdoutStream.end();
-            if (pod) await deletePod(pod);
+            if (pod) deletePod(pod);
             try {
               if (ws.readyState === ws.OPEN) ws.close();
             } catch {}
@@ -148,7 +144,7 @@ export function createWsServer(server: Server) {
           }
         }
 
-        // forward stdout/stderr to websocket (binary)
+        // forward stdout/stderr to websocket
         stdoutStream.on("data", (chunk: Buffer) => {
           const str = chunk.toString("utf8");
           console.log("Received stdout len=%d repr=%j", chunk.length, str);
@@ -172,31 +168,32 @@ export function createWsServer(server: Server) {
           shutdown("websocket error: " + JSON.stringify(e))
         );
 
+        const cmd = ["/bin/sh"];
+
         try {
           ws.send(`Attempting to attach...\r\n`);
           console.log("Attempting to attach...");
-          const attach = await createAttach();
+          const attach = await createExec();
           if (!attach) {
             shutdown("Could not create k8s attach");
             return;
           }
           attach
-            .attach(
+            .exec(
               pod.metadata?.namespace ?? "",
               pod.metadata?.name ?? "",
-              "k9s",
+              pod.spec?.containers?.[0].name ?? "",
+              cmd,
               stdoutStream,
               stderrStream,
               stdinStream,
-              true // tty
+              true, // tty
+              () => shutdown("k9s attach closed")
             )
             .then(() => {
               ws.send(`Attached! Welcome to k9s\r\n`);
               console.log("Attached! Welcome to k9s");
-            })
-            .catch((err: any) => {
-              shutdown("attach error: " + JSON.stringify(err));
-            });
+            }, undefined);
         } catch (err: any) {
           shutdown("attach error: " + JSON.stringify(err));
         }
