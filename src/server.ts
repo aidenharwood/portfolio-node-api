@@ -51,18 +51,11 @@ wss.on("connection", (ws: WS) => {
 
   // Expect an init message first to choose pod/namespace/container/cmd
   ws.once("message", async (firstMsg) => {
-    let init: any = {};
-    try {
-      init = JSON.parse(firstMsg.toString());
-    } catch {
-      // allow empty -> use defaults
-      init = {};
-    }
 
-    const namespace = init.namespace || process.env.POD_NAMESPACE || "default";
-    const pod = init.pod || process.env.POD_NAME;
-    const container = init.container || "k9s";
-    const cmd = Array.isArray(init.cmd) ? init.cmd : ["/bin/sh"];
+    const namespace = process.env.POD_NAMESPACE || "default";
+    const pod = process.env.POD_NAME || process.env.HOSTNAME;
+    const container = "portfolio-k9s";
+    const cmd = ["/bin/sh", "-c", "k9s"];
 
     if (!pod) {
       ws.send(
