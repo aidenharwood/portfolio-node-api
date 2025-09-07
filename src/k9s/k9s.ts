@@ -98,8 +98,9 @@ export function createWsServer(server: Server) {
           // ignore - use defaults below
         }
 
-        ws.send(`Starting container...\r\n`);
+        ws.send(`Creating pod...\r\n`);
 
+        console.log("Creating pod...");
         const pod: V1Pod | undefined = await createK9sPod();
 
         const stdinStream = new PassThrough();
@@ -125,9 +126,18 @@ export function createWsServer(server: Server) {
           shutdown("Could not create k9s pod");
           return;
         } else {
+          ws.send(
+            `Created pod ${pod.metadata?.name} created, waiting to start...\r\n`
+          );
+          console.log(
+            `Created pod ${pod.metadata?.name} created, waiting to start...`
+          );
           // wait up to a minute for pod to be running
           const statusCheckStart = Date.now();
-          while ((await getPodStatus(pod))?.status?.containerStatuses?.[0].state?.running === undefined) {
+          while (
+            (await getPodStatus(pod))?.status?.containerStatuses?.[0].state
+              ?.running === undefined
+          ) {
             if (Date.now() - statusCheckStart > 60000) {
               shutdown("Timed out waiting for k9s pod to start");
               return;
@@ -135,9 +145,6 @@ export function createWsServer(server: Server) {
             await new Promise((r) => setTimeout(r, 1000));
           }
         }
-
-        // const cmd = ["sh", "-lc", "export TERM=xterm-256color; exec k9s --headless --readonly --all-namespaces"];
-        const cmd = ["sh"];
 
         // forward stdout/stderr to websocket (binary)
         stdoutStream.on("data", (chunk: Buffer) => {
@@ -164,9 +171,10 @@ export function createWsServer(server: Server) {
         );
 
         try {
-          // exec into the target container with TTY enabled
+          ws.send(`Attempting to attach...\r\n`);
+          console.log("Attempting to attach...");
           const attach = await createAttach();
-          if(!attach) {
+          if (!attach) {
             shutdown("Could not create k8s attach");
             return;
           }
@@ -179,8 +187,10 @@ export function createWsServer(server: Server) {
             stdinStream,
             true // tty
           );
+          ws.send(`Attached! Welcome to k9s\r\n`);
+          console.log("Attached! Welcome to k9s");
         } catch (err: any) {
-          shutdown("exec error: " + JSON.stringify(err));
+          shutdown("attach error: " + JSON.stringify(err));
         }
       });
     } catch (err) {
