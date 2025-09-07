@@ -56,15 +56,15 @@ wss.on("connection", (ws: WS) => {
       const namespace = process.env.POD_NAMESPACE || "default";
       const pod = process.env.POD_NAME || process.env.HOSTNAME;
       const container = "portfolio-k9s";
-      // const cmd = ["k9s", "--headless", "--readonly"];
-      const cmd = ["/bin/sh","-lc","echo hello; sleep 5; ls -la"];
+      const cmd = ["k9s", "--headless", "--readonly"];
+      // const cmd = ["/bin/sh","-lc","echo hello; sleep 5; ls -la"];
 
       console.log("Client connected to k9s websocket");
       ws.send(`Starting k9s...\r\n`);
 
       if (!pod) {
         ws.send(
-          "Error: target pod not specified and POD_NAME not set in environment"
+          "Error: target pod not specified and POD_NAME not set in environment\r\n"
         );
         ws.close();
         return;
@@ -139,7 +139,7 @@ wss.on("connection", (ws: WS) => {
         );
       } catch (err: any) {
         console.error("k9s exec error:", err);
-        ws.send(`Error exec into container: ${JSON.stringify(err)}`);
+        ws.send(`Error exec into container: ${JSON.stringify(err)}\r\n`);
         ws.close();
       }
     });
