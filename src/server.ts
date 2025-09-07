@@ -57,6 +57,7 @@ wss.on("connection", (ws: WS) => {
     const container = "portfolio-k9s";
     const cmd = ["/bin/sh", "-c", "k9s"];
 
+    console.log("Client connected to k9s websocket");
     ws.send(`Starting k9s...\r\n`);
 
     if (!pod) {
