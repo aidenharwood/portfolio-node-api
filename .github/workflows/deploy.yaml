@@ -35,5 +35,5 @@ jobs:
           repo_token: ${{ secrets.GH_PAT }}
           registry: ghcr.io
           image_name: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
-          yaml_file: templates/application.portfolio-api.yaml
+          yaml_file: templates/api/application.portfolio-api.yaml
           yaml_path: .spec.template.spec.containers[0].image
