@@ -51,7 +51,14 @@ wss.on("connection", (ws: WS) => {
     let closed = false;
 
     // Expect an init message first to choose pod/namespace/container/cmd
-    ws.once("message", async (firstMsg) => {
+    ws.once("message", async (firstMsg: string | Buffer) => {
+      let init: any = {};
+      try {
+        if (typeof firstMsg === "string" && firstMsg.length) init = JSON.parse(firstMsg);
+        else if (Buffer.isBuffer(firstMsg) && firstMsg.length) init = JSON.parse(firstMsg.toString("utf8"));
+      } catch (e) {
+        // ignore - use defaults below
+      }
 
       const namespace = process.env.POD_NAMESPACE || "default";
       const pod = process.env.POD_NAME || process.env.HOSTNAME;
@@ -60,17 +67,7 @@ wss.on("connection", (ws: WS) => {
       const cmd = ["sh"];
 
       console.log("Client connected to k9s websocket");
-      ws.send(`Starting k9s...\r\n`);
-
-      if (!pod) {
-        ws.send(
-          "Error: target pod not specified and POD_NAME not set in environment\r\n"
-        );
-        ws.close();
-        return;
-      }
-
-      console.log("k9s exec into", { namespace, pod, container, cmd });
+      // ws.send(`Starting k9s...\r\n`);
 
       const stdinStream = new PassThrough();
       const stdoutStream = new PassThrough();
