@@ -11,7 +11,7 @@ const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
   namespace: "k9s",
   body: {
     metadata: {
-      name: "k9s-pod",
+      generateName: "k9s-pod",
     },
     spec: {
       initContainers: [
