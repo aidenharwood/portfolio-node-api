@@ -138,9 +138,7 @@ export function createWsServer(server: Server) {
               shutdown("Timed out waiting for k9s pod to start");
               return;
             }
-            try {
-              await new Promise((r) => setTimeout(r, 1000));
-            } catch {}
+            await new Promise((r) => setTimeout(r, 1000));
           }
         }
 
@@ -168,7 +166,8 @@ export function createWsServer(server: Server) {
           shutdown("websocket error: " + JSON.stringify(e))
         );
 
-        const cmd = ["/bin/sh"];
+        const cmd = ["k9s"];
+        // const cmd = ["/bin/sh"];
 
         try {
           ws.send(`Attempting to attach...\r\n`);
