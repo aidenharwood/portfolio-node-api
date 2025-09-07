@@ -80,12 +80,12 @@ wss.on("connection", (ws: WS) => {
       stdoutStream.on("data", (chunk: Buffer) => {
         const str = chunk.toString("utf8");
         console.log("Received stdout len=%d repr=%j", chunk.length, str);
-        if (ws.readyState === ws.OPEN) ws.send(str);
+        if (ws.readyState === ws.OPEN) ws.send(chunk);
       });
       stderrStream.on("data", (chunk: Buffer) => {
         const str = chunk.toString("utf8");
         console.log("Received stdout len=%d repr=%j", chunk.length, str);
-        if (ws.readyState === ws.OPEN) ws.send(str);
+        if (ws.readyState === ws.OPEN) ws.send(chunk);
       });
 
       // forward websocket messages to stdin. Support resize messages:
