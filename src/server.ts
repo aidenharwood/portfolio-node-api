@@ -26,4 +26,10 @@ app.get("/api/posts/:slug", (req: Request, res: Response) => {
 
 const server = http.createServer(app);
 
+const PORT = process.env.PORT || 4000;
+server.listen(PORT, () =>
+  console.log(`API running on http://localhost:${PORT}`)
+);
+
+
 createWsServer(server);

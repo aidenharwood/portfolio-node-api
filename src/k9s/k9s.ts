@@ -189,4 +189,5 @@ export function createWsServer(server: Server) {
       } catch {}
     }
   });
+  console.log("K9s WebSocket server created at /k9s");
 }
