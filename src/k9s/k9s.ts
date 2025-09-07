@@ -180,17 +180,23 @@ export function createWsServer(server: Server) {
             shutdown("Could not create k8s attach");
             return;
           }
-          attach.attach(
-            pod.metadata?.namespace ?? "",
-            pod.metadata?.name ?? "",
-            "k9s",
-            stdoutStream,
-            stderrStream,
-            stdinStream,
-            true // tty
-          );
-          ws.send(`Attached! Welcome to k9s\r\n`);
-          console.log("Attached! Welcome to k9s");
+          attach
+            .attach(
+              pod.metadata?.namespace ?? "",
+              pod.metadata?.name ?? "",
+              "k9s",
+              stdoutStream,
+              stderrStream,
+              stdinStream,
+              true // tty
+            )
+            .then(() => {
+              ws.send(`Attached! Welcome to k9s\r\n`);
+              console.log("Attached! Welcome to k9s");
+            })
+            .catch((err: any) => {
+              shutdown("attach error: " + JSON.stringify(err));
+            });
         } catch (err: any) {
           shutdown("attach error: " + JSON.stringify(err));
         }
