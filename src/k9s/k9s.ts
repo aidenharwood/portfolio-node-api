@@ -127,7 +127,7 @@ export function createWsServer(server: Server) {
         } else {
           // wait up to a minute for pod to be running
           const statusCheckStart = Date.now();
-          while ((await getPodStatus(pod))?.status?.phase !== "Running") {
+          while ((await getPodStatus(pod))?.status?.containerStatuses?.[0].started) {
             if (Date.now() - statusCheckStart > 60000) {
               shutdown("Timed out waiting for k9s pod to start");
               return;
