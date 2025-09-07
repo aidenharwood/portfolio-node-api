@@ -38,7 +38,7 @@ const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
           ],
         },
       ],
-      serviceAccountName: "k9s",
+      serviceAccountName: "k9s-sa",
       containers: [
         {
           name: "k9s",
