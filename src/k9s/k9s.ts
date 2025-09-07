@@ -109,7 +109,6 @@ export function createWsServer(server: Server) {
         const shutdown = async (reason: string) => {
           console.log("Shutting down k9s session: ", reason);
           ws.send(`\r\nSession terminated: ${reason}\r\n`);
-          closed = true;
           if (!closed) {
             stdinStream.end();
             stderrStream.end();
@@ -119,6 +118,7 @@ export function createWsServer(server: Server) {
               if (ws.readyState === ws.OPEN) ws.close();
             } catch {}
           }
+          closed = true;
         };
 
         if (!pod) {
