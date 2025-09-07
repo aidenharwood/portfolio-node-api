@@ -102,12 +102,6 @@ export function createWsServer(server: Server) {
 
         const pod: V1Pod | undefined = await createK9sPod();
 
-        if (!pod) {
-          ws.send(`Error creating k9s pod!\r\n`);
-          ws.close();
-          return;
-        }
-
         const stdinStream = new PassThrough();
         const stdoutStream = new PassThrough();
         const stderrStream = new PassThrough();
@@ -125,6 +119,11 @@ export function createWsServer(server: Server) {
           } catch {}
         };
 
+        if (!pod) {
+          shutdown("Could not create k9s pod");
+          return;
+        }
+
         // const cmd = ["sh", "-lc", "export TERM=xterm-256color; exec k9s --headless --readonly --all-namespaces"];
         const cmd = ["sh"];
 
@@ -140,28 +139,9 @@ export function createWsServer(server: Server) {
           if (ws.readyState === ws.OPEN) ws.send(chunk);
         });
 
-        // forward websocket messages to stdin. Support resize messages:
+        // forward websocket messages to stdin
         ws.on("message", (m) => {
           if (closed) return;
-          if (typeof m === "string") {
-            try {
-              const obj = JSON.parse(m);
-              if (
-                obj &&
-                obj.type === "resize" &&
-                typeof obj.cols === "number" &&
-                typeof obj.rows === "number"
-              ) {
-                // resize request: try to call underlying resize if available
-                // The client-node Exec does not expose a simple resize API here, so this may be a no-op.
-                // If using a different exec mechanism, implement resize there.
-                return;
-              }
-            } catch {
-              // not JSON -> treat as raw input
-            }
-          }
-          // write raw data into stdin stream
           if (Buffer.isBuffer(m)) stdinStream.write(m);
           else stdinStream.write(Buffer.from(String(m)));
         });
@@ -189,8 +169,6 @@ export function createWsServer(server: Server) {
             }
           );
         } catch (err: any) {
-          console.error("k9s exec error:", err);
-          ws.send(`Error exec into container: ${JSON.stringify(err)}\r\n`);
           shutdown("exec error: " + JSON.stringify(err));
         }
       });
