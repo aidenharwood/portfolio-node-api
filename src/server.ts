@@ -137,7 +137,8 @@ wss.on("connection", (ws: WS) => {
           }
         );
       } catch (err: any) {
-        ws.send(`Error exec into container: ${err.message || String(err)}`);
+        console.error("k9s exec error:", err);
+        ws.send(`Error exec into container: ${String(err)}`);
         ws.close();
       }
     });
@@ -151,5 +152,5 @@ wss.on("connection", (ws: WS) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () =>
-  console.log(`API (with /k9s websocket) running on http://localhost:${PORT}`)
+  console.log(`API running on http://localhost:${PORT}`)
 );
