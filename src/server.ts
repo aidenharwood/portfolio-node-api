@@ -138,7 +138,7 @@ wss.on("connection", (ws: WS) => {
         );
       } catch (err: any) {
         console.error("k9s exec error:", err);
-        ws.send(`Error exec into container: ${String(err)}`);
+        ws.send(`Error exec into container: ${JSON.stringify(err)}`);
         ws.close();
       }
     });
