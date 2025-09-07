@@ -3,9 +3,7 @@ import cors from "cors";
 import { getAllPostsMeta, getPostBySlug } from "./blog/blog";
 import { getStatusBadges } from "./argocd/argocd";
 import http from "http";
-import { Server as WebSocketServer, WebSocket as WS } from "ws";
-import * as k8s from "@kubernetes/client-node";
-import { PassThrough } from "stream";
+import { createWsServer } from "./k9s/k9s";
 
 const app = express();
 app.use(cors());
@@ -27,3 +25,5 @@ app.get("/api/posts/:slug", (req: Request, res: Response) => {
 });
 
 const server = http.createServer(app);
+
+createWsServer(server);

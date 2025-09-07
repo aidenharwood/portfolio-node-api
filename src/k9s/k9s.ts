@@ -69,7 +69,7 @@ async function createK9sPod() {
   return createPod(k9sPodManifest, {});
 }
 
-function createWsServer(server: Server) {
+export function createWsServer(server: Server) {
   const wss = new WebSocketServer({ server, path: "/k9s" });
 
   wss.on("connection", (ws: WebSocket) => {
