@@ -47,99 +47,106 @@ const exec = new k8s.Exec(kc);
 const wss = new WebSocketServer({ server, path: "/k9s" });
 
 wss.on("connection", (ws: WS) => {
-  let closed = false;
+  try {
+    let closed = false;
 
-  // Expect an init message first to choose pod/namespace/container/cmd
-  ws.once("message", async (firstMsg) => {
+    // Expect an init message first to choose pod/namespace/container/cmd
+    ws.once("message", async (firstMsg) => {
 
-    const namespace = process.env.POD_NAMESPACE || "default";
-    const pod = process.env.POD_NAME || process.env.HOSTNAME;
-    const container = "portfolio-k9s";
-    const cmd = ["/bin/sh", "-c", "k9s"];
+      const namespace = process.env.POD_NAMESPACE || "default";
+      const pod = process.env.POD_NAME || process.env.HOSTNAME;
+      const container = "portfolio-k9s";
+      const cmd = ["/bin/sh", "-c", "k9s"];
 
-    console.log("Client connected to k9s websocket");
-    ws.send(`Starting k9s...\r\n`);
+      console.log("Client connected to k9s websocket");
+      ws.send(`Starting k9s...\r\n`);
 
-    if (!pod) {
-      ws.send(
-        "Error: target pod not specified and POD_NAME not set in environment"
-      );
-      ws.close();
-      return;
-    }
-
-    console.log("k9s exec into", { namespace, pod, container, cmd });
-
-    const stdinStream = new PassThrough();
-    const stdoutStream = new PassThrough();
-    const stderrStream = new PassThrough();
-
-    // forward stdout/stderr to websocket (binary)
-    stdoutStream.on("data", (chunk: Buffer) => {
-      if (ws.readyState === ws.OPEN) ws.send(chunk);
-    });
-    stderrStream.on("data", (chunk: Buffer) => {
-      if (ws.readyState === ws.OPEN) ws.send(chunk);
-    });
-
-    // forward websocket messages to stdin. Support resize messages:
-    ws.on("message", (m) => {
-      if (closed) return;
-      if (typeof m === "string") {
-        try {
-          const obj = JSON.parse(m);
-          if (
-            obj &&
-            obj.type === "resize" &&
-            typeof obj.cols === "number" &&
-            typeof obj.rows === "number"
-          ) {
-            // resize request: try to call underlying resize if available
-            // The client-node Exec does not expose a simple resize API here, so this may be a no-op.
-            // If using a different exec mechanism, implement resize there.
-            return;
-          }
-        } catch {
-          // not JSON -> treat as raw input
-        }
+      if (!pod) {
+        ws.send(
+          "Error: target pod not specified and POD_NAME not set in environment"
+        );
+        ws.close();
+        return;
       }
-      // write raw data into stdin stream
-      if (Buffer.isBuffer(m)) stdinStream.write(m);
-      else stdinStream.write(Buffer.from(String(m)));
-    });
 
-    ws.on("close", () => {
-      closed = true;
-      stdinStream.end();
-    });
-    ws.on("error", () => {
-      closed = true;
-      stdinStream.end();
-    });
+      console.log("k9s exec into", { namespace, pod, container, cmd });
 
-    try {
-      // exec into the target container with TTY enabled
-      exec.exec(
-        namespace,
-        pod,
-        container,
-        cmd,
-        stdoutStream,
-        stderrStream,
-        stdinStream,
-        true, // tty
-        (status) => {
-          // exec finished
+      const stdinStream = new PassThrough();
+      const stdoutStream = new PassThrough();
+      const stderrStream = new PassThrough();
+
+      // forward stdout/stderr to websocket (binary)
+      stdoutStream.on("data", (chunk: Buffer) => {
+        if (ws.readyState === ws.OPEN) ws.send(chunk);
+      });
+      stderrStream.on("data", (chunk: Buffer) => {
+        if (ws.readyState === ws.OPEN) ws.send(chunk);
+      });
+
+      // forward websocket messages to stdin. Support resize messages:
+      ws.on("message", (m) => {
+        if (closed) return;
+        if (typeof m === "string") {
           try {
-            if (ws.readyState === ws.OPEN) ws.close();
-          } catch {}
+            const obj = JSON.parse(m);
+            if (
+              obj &&
+              obj.type === "resize" &&
+              typeof obj.cols === "number" &&
+              typeof obj.rows === "number"
+            ) {
+              // resize request: try to call underlying resize if available
+              // The client-node Exec does not expose a simple resize API here, so this may be a no-op.
+              // If using a different exec mechanism, implement resize there.
+              return;
+            }
+          } catch {
+            // not JSON -> treat as raw input
+          }
         }
-      );
-    } catch (err: any) {
-      ws.send(`Error exec into container: ${err.message || String(err)}`);
-      ws.close();
-    }
-  });
+        // write raw data into stdin stream
+        if (Buffer.isBuffer(m)) stdinStream.write(m);
+        else stdinStream.write(Buffer.from(String(m)));
+      });
+
+      ws.on("close", () => {
+        closed = true;
+        stdinStream.end();
+      });
+      ws.on("error", () => {
+        closed = true;
+        stdinStream.end();
+      });
+
+      try {
+        // exec into the target container with TTY enabled
+        await exec.exec(
+          namespace,
+          pod,
+          container,
+          cmd,
+          stdoutStream,
+          stderrStream,
+          stdinStream,
+          true, // tty
+          (status) => {
+            // exec finished
+            try {
+              if (ws.readyState === ws.OPEN) ws.close();
+            } catch {}
+          }
+        );
+      } catch (err: any) {
+        ws.send(`Error exec into container: ${err.message || String(err)}`);
+        ws.close();
+      }
+    });
+  } catch (err) {
+    console.error("k9s websocket error:", err);
+    try {
+      if (ws.readyState === ws.OPEN) ws.close();
+    } catch {}
+  }
 });
 
 const PORT = process.env.PORT || 4000;
