@@ -28,6 +28,19 @@ export async function exec() {
   }
 }
 
+export async function getPodStatus(pod: V1Pod) {
+  try {
+    const k8sApi = await createK8sClient();
+    return await k8sApi?.readNamespacedPodStatus({
+      name: pod.metadata?.name ?? "",
+      namespace: pod.metadata?.namespace ?? "",
+    });
+  } catch (e) {
+    console.error("Error creating pod:", e);
+    return;
+  }
+}
+
 export async function createPod(
   metadata: CoreV1ApiCreateNamespacedPodRequest,
   options: ConfigurationOptions

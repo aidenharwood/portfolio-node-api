@@ -1,5 +1,5 @@
 import { PassThrough } from "stream";
-import { createPod, deletePod, createK8sClient, exec } from "../utils/k8s";
+import { createPod, deletePod, getPodStatus, exec } from "../utils/k8s";
 import {
   CoreV1ApiCreateNamespacedPodRequest,
   V1Pod,
@@ -110,18 +110,29 @@ export function createWsServer(server: Server) {
           console.log("Shutting down k9s session: ", reason);
           ws.send(`\r\nSession terminated: ${reason}\r\n`);
           closed = true;
-          stdinStream.end();
-          stderrStream.end();
-          stdoutStream.end();
-          await deletePod(pod);
-          try {
-            if (ws.readyState === ws.OPEN) ws.close();
-          } catch {}
+          if (!closed) {
+            stdinStream.end();
+            stderrStream.end();
+            stdoutStream.end();
+            if (pod) await deletePod(pod);
+            try {
+              if (ws.readyState === ws.OPEN) ws.close();
+            } catch {}
+          }
         };
 
         if (!pod) {
           shutdown("Could not create k9s pod");
           return;
+        } else {
+          // wait up to a minute for pod to be running
+          const statusCheckStart = Date.now();
+          while ((await getPodStatus(pod))?.status?.phase !== "Running") {
+            if (Date.now() - statusCheckStart > 60000) {
+              shutdown("Timed out waiting for k9s pod to start");
+              return;
+            }
+          }
         }
 
         // const cmd = ["sh", "-lc", "export TERM=xterm-256color; exec k9s --headless --readonly --all-namespaces"];
@@ -147,7 +158,9 @@ export function createWsServer(server: Server) {
         });
 
         ws.on("close", () => shutdown("websocket closed"));
-        ws.on("error", (e) => shutdown("websocket error: " + JSON.stringify(e)));
+        ws.on("error", (e) =>
+          shutdown("websocket error: " + JSON.stringify(e))
+        );
 
         try {
           // exec into the target container with TTY enabled
