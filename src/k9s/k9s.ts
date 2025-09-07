@@ -112,7 +112,9 @@ export function createWsServer(server: Server) {
         const stdoutStream = new PassThrough();
         const stderrStream = new PassThrough();
 
-        const shutdown = async () => {
+        const shutdown = async (reason: string) => {
+          console.log("Shutting down k9s session: ", reason);
+          ws.send(`\r\nSession terminated: ${reason}\r\n`);
           closed = true;
           stdinStream.end();
           stderrStream.end();
@@ -164,8 +166,8 @@ export function createWsServer(server: Server) {
           else stdinStream.write(Buffer.from(String(m)));
         });
 
-        ws.on("close", () => shutdown());
-        ws.on("error", () => shutdown());
+        ws.on("close", () => shutdown("websocket closed"));
+        ws.on("error", (e) => shutdown("websocket error: " + JSON.stringify(e)));
 
         try {
           // exec into the target container with TTY enabled
@@ -182,14 +184,14 @@ export function createWsServer(server: Server) {
             true, // tty
             () => {
               try {
-                if (ws.readyState === ws.OPEN) shutdown();
+                if (ws.readyState === ws.OPEN) shutdown("exec terminated");
               } catch {}
             }
           );
         } catch (err: any) {
           console.error("k9s exec error:", err);
           ws.send(`Error exec into container: ${JSON.stringify(err)}\r\n`);
-          shutdown();
+          shutdown("exec error: " + JSON.stringify(err));
         }
       });
     } catch (err) {
