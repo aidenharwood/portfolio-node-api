@@ -1,5 +1,5 @@
 import { PassThrough } from "stream";
-import { createPod, deletePod, getPodStatus, exec } from "../utils/k8s";
+import { createPod, deletePod, getPodStatus, createAttach } from "../utils/k8s";
 import {
   CoreV1ApiCreateNamespacedPodRequest,
   V1Pod,
@@ -165,22 +165,19 @@ export function createWsServer(server: Server) {
 
         try {
           // exec into the target container with TTY enabled
-          const ex = await exec();
-          if (!ex) throw new Error("Could not create k8s exec client");
-          await ex.exec(
+          const attach = await createAttach();
+          if(!attach) {
+            shutdown("Could not create k8s attach");
+            return;
+          }
+          attach.attach(
             pod.metadata?.namespace ?? "",
             pod.metadata?.name ?? "",
             "k9s",
-            cmd,
             stdoutStream,
             stderrStream,
             stdinStream,
-            true, // tty
-            () => {
-              try {
-                if (ws.readyState === ws.OPEN) shutdown("exec terminated");
-              } catch {}
-            }
+            true // tty
           );
         } catch (err: any) {
           shutdown("exec error: " + JSON.stringify(err));

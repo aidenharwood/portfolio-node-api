@@ -16,12 +16,24 @@ export async function createK8sClient() {
   }
 }
 
-export async function exec() {
+export async function createExec() {
   const kc = new k8s.KubeConfig();
   try {
     kc.loadFromCluster();
     const exec = new k8s.Exec(kc);
     return exec;
+  } catch (e) {
+    console.warn("Could not load kubeconfig:", e);
+    return;
+  }
+}
+
+export async function createAttach() {
+  const kc = new k8s.KubeConfig();
+  try {
+    kc.loadFromCluster();
+    const attach = new k8s.Attach(kc);
+    return attach;
   } catch (e) {
     console.warn("Could not load kubeconfig:", e);
     return;
