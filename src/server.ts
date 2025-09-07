@@ -78,12 +78,14 @@ wss.on("connection", (ws: WS) => {
 
       // forward stdout/stderr to websocket (binary)
       stdoutStream.on("data", (chunk: Buffer) => {
-        console.log("Received chunk:", chunk.toString());
-        if (ws.readyState === ws.OPEN) ws.send(chunk);
+        const str = chunk.toString("utf8");
+        console.log("Received stdout len=%d repr=%j", chunk.length, str);
+        if (ws.readyState === ws.OPEN) ws.send(str);
       });
       stderrStream.on("data", (chunk: Buffer) => {
-        console.log("Received chunk:", chunk.toString());
-        if (ws.readyState === ws.OPEN) ws.send(chunk);
+        const str = chunk.toString("utf8");
+        console.log("Received stdout len=%d repr=%j", chunk.length, str);
+        if (ws.readyState === ws.OPEN) ws.send(str);
       });
 
       // forward websocket messages to stdin. Support resize messages:
