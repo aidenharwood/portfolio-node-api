@@ -142,7 +142,9 @@ export function createWsServer(server: Server) {
               shutdown("Timed out waiting for k9s pod to start");
               return;
             }
-            await new Promise((r) => setTimeout(r, 1000));
+            try {
+              await new Promise((r) => setTimeout(r, 1000));
+            } catch {}
           }
         }
 
