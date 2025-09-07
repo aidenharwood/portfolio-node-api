@@ -56,7 +56,7 @@ wss.on("connection", (ws: WS) => {
       const namespace = process.env.POD_NAMESPACE || "default";
       const pod = process.env.POD_NAME || process.env.HOSTNAME;
       const container = "portfolio-k9s";
-      const cmd = ["k9s", "--headless", "--readonly"];
+      const cmd = ["k9s", "--headless", "--readonly", "--all-namespaces"];
       // const cmd = ["/bin/sh","-lc","echo hello; sleep 5; ls -la"];
 
       console.log("Client connected to k9s websocket");
@@ -78,9 +78,11 @@ wss.on("connection", (ws: WS) => {
 
       // forward stdout/stderr to websocket (binary)
       stdoutStream.on("data", (chunk: Buffer) => {
+        console.log("Received chunk:", chunk.toString());
         if (ws.readyState === ws.OPEN) ws.send(chunk);
       });
       stderrStream.on("data", (chunk: Buffer) => {
+        console.log("Received chunk:", chunk.toString());
         if (ws.readyState === ws.OPEN) ws.send(chunk);
       });
 
@@ -131,7 +133,6 @@ wss.on("connection", (ws: WS) => {
           stdinStream,
           true, // tty
           (status) => {
-            // exec finished
             try {
               if (ws.readyState === ws.OPEN) ws.close();
             } catch {}
