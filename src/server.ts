@@ -56,7 +56,8 @@ wss.on("connection", (ws: WS) => {
       const namespace = process.env.POD_NAMESPACE || "default";
       const pod = process.env.POD_NAME || process.env.HOSTNAME;
       const container = "portfolio-k9s";
-      const cmd = ["/bin/sh", "-c", "k9s", "--headless", "--readonly"];
+      // const cmd = ["k9s", "--headless", "--readonly"];
+      const cmd = ["/bin/sh","-lc","echo hello; sleep 5; ls -la"];
 
       console.log("Client connected to k9s websocket");
       ws.send(`Starting k9s...\r\n`);
