@@ -57,6 +57,8 @@ wss.on("connection", (ws: WS) => {
     const container = "portfolio-k9s";
     const cmd = ["/bin/sh", "-c", "k9s"];
 
+    ws.send(`Starting k9s...\r\n`);
+
     if (!pod) {
       ws.send(
         "Error: target pod not specified and POD_NAME not set in environment"
@@ -64,6 +66,8 @@ wss.on("connection", (ws: WS) => {
       ws.close();
       return;
     }
+
+    console.log("k9s exec into", { namespace, pod, container, cmd });
 
     const stdinStream = new PassThrough();
     const stdoutStream = new PassThrough();
