@@ -170,8 +170,8 @@ export function createWsServer(server: Server) {
           shutdown("websocket error: " + JSON.stringify(e))
         );
 
-        const cmd = ["k9s"];
-        // const cmd = ["/bin/sh"];
+        // const cmd = ["k9s"];
+        const cmd = ["/bin/sh"];
 
         try {
           ws.send(`Attempting to attach...\r\n`);
