@@ -7,7 +7,9 @@ import {
   createExec,
 } from "../utils/k8s";
 import {
+  Attach,
   CoreV1ApiCreateNamespacedPodRequest,
+  Exec,
   V1Pod,
 } from "@kubernetes/client-node";
 import { WebSocketServer, WebSocket } from "ws";
@@ -93,13 +95,12 @@ export function createWsServer(server: Server) {
     try {
       let closed = false;
 
+      ws.on("resize", async () => {
+        console.log("Resize event received, not implemented");
+      });
+
       // Expect an init message first to choose pod/namespace/container/cmd
       ws.once("message", async (firstMsg: string | Buffer) => {
-        ws.send(`Creating pod...\r\n`);
-
-        console.log("Creating pod...");
-        const pod: V1Pod | undefined = await createK9sPod();
-
         const stdinStream = new PassThrough();
         const stdoutStream = new PassThrough();
         const stderrStream = new PassThrough();
@@ -118,6 +119,11 @@ export function createWsServer(server: Server) {
           }
           closed = true;
         };
+
+        ws.send(`Creating pod...\r\n`);
+
+        console.log("Creating pod...");
+        const pod: V1Pod | undefined = await createK9sPod();
 
         if (!pod) {
           shutdown("Could not create k9s pod");
