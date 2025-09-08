@@ -162,13 +162,13 @@ export function createWsServer(server: Server) {
         if(closed) return;
         if (ws.readyState === ws.OPEN) stdinStream.write(chunk);
       });
-
-      // forward websocket messages to stdin
+      
       ws.on("message", (m) => {
         if (closed) return;
         if (Buffer.isBuffer(m)) stdinStream.write(m);
         else stdinStream.write(Buffer.from(String(m)));
       });
+        
 
       ws.on("close", () => shutdown("websocket closed"));
       ws.on("error", (e) => shutdown("websocket error: " + JSON.stringify(e)));
