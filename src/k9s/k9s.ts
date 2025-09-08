@@ -92,12 +92,9 @@ export function createWsServer(server: Server) {
   const wss = new WebSocketServer({ server, path: "/k9s" });
 
   wss.on("connection", (ws: WebSocket) => {
+    ws.binaryType = "arraybuffer";
     try {
       let closed = false;
-
-      ws.on("resize", async () => {
-        console.log("Resize event received, not implemented");
-      });
 
       // Expect an init message first to choose pod/namespace/container/cmd
       ws.once("message", async (firstMsg: string | Buffer) => {
