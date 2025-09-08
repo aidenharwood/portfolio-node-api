@@ -151,22 +151,16 @@ export function createWsServer(server: Server) {
       }
 
       // forward stdout/stderr to websocket
-      stdoutStream.on("data", (chunk: Buffer) => {
-        const str = chunk.toString("utf8");
-        console.log("Received stdout len=%d repr=%j", chunk.length, str);
-        if (ws.readyState === ws.OPEN) ws.send(chunk);
+      stdoutStream.on("data", (chunk: any) => {
+        if (ws.readyState === ws.OPEN) ws.emit("data", Buffer.from(chunk, "utf-8"));
       });
-      stderrStream.on("data", (chunk: Buffer) => {
-        const str = chunk.toString("utf8");
-        console.log("Received stdout len=%d repr=%j", chunk.length, str);
-        if (ws.readyState === ws.OPEN) ws.send(chunk);
+      stderrStream.on("data", (chunk: any) => {
+        if (ws.readyState === ws.OPEN) ws.emit("data", Buffer.from(chunk, "utf-8"));
       });
 
-      // forward websocket messages to stdin
-      ws.on("message", (m) => {
-        if (closed) return;
-        if (Buffer.isBuffer(m)) stdinStream.write(m);
-        else stdinStream.write(Buffer.from(String(m)));
+      ws.on("data", (chunk: any) => {
+        if(closed) return;
+        if (ws.readyState === ws.OPEN) stdinStream.write(chunk);
       });
 
       ws.on("close", () => shutdown("websocket closed"));
