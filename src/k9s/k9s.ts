@@ -172,7 +172,7 @@ export function createWsServer(server: Server) {
 
         // const cmd = ["k9s"];
         // const cmd = ["/bin/sh"];
-        const cmd = "/bin/sh -lc apk add shadow bash acl && mkdir -p /home/guest && setfacl -m u:guest:rwx /home/guest && usermod -d /home/guest guest && chsh -s /bin/bash guest && su guest";
+        const cmd = "/bin/sh -lc 'apk add shadow bash acl && mkdir -p /home/guest && setfacl -m u:guest:rwx /home/guest && usermod -d /home/guest guest && chsh -s /bin/bash guest && su guest'";
 
         try {
           ws.send(`Attempting to attach...\r\n`);
