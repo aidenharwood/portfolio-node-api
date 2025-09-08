@@ -15,12 +15,6 @@ import {
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
 
-const podcmd = [
-  "/bin/sh",
-  "-lc",
-  "apk add --quiet --no-progress shadow bash acl; mkdir -p /home/guest; setfacl -m u:guest:rwx /home/guest; usermod -d /home/guest guest; chsh -s /bin/bash guest; su -l guest",
-];
-
 const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
   namespace: "k9s",
   body: {
@@ -51,7 +45,7 @@ const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
         {
           name: "k9s",
           image: "derailed/k9s:latest",
-          command: podcmd,
+          command: ["/bin/sh"],
           tty: true,
           stdin: true,
           env: [{ name: "KUBECONFIG", value: "/kube/config" }],
@@ -151,25 +145,23 @@ export function createWsServer(server: Server) {
       }
 
       // forward stdout/stderr to websocket
-      stdoutStream.on("data", (chunk: any) => {
-        if (ws.readyState === ws.OPEN) ws.send(Buffer.from(chunk, "utf-8"));
+      stdoutStream.on("data", (chunk: Buffer) => {
+        const str = chunk.toString("utf8");
+        console.log("Received stdout len=%d repr=%j", chunk.length, str);
+        if (ws.readyState === ws.OPEN) ws.send(chunk);
       });
-      stderrStream.on("data", (chunk: any) => {
-        if (ws.readyState === ws.OPEN) ws.send(Buffer.from(chunk, "utf-8"));
+      stderrStream.on("data", (chunk: Buffer) => {
+        const str = chunk.toString("utf8");
+        console.log("Received stdout len=%d repr=%j", chunk.length, str);
+        if (ws.readyState === ws.OPEN) ws.send(chunk);
       });
 
-      ws.on("data", (chunk: any) => {
-        if(closed) return;
-        // if (ws.readyState === ws.OPEN) stdinStream.emit('data', chunk);
-        if (ws.readyState === ws.OPEN) stdinStream.emit('data', chunk);
-      });
-      
+      // forward websocket messages to stdin
       ws.on("message", (m) => {
         if (closed) return;
         if (Buffer.isBuffer(m)) stdinStream.write(m);
         else stdinStream.write(Buffer.from(String(m)));
       });
-        
 
       ws.on("close", () => shutdown("websocket closed"));
       ws.on("error", (e) => shutdown("websocket error: " + JSON.stringify(e)));
@@ -179,7 +171,7 @@ export function createWsServer(server: Server) {
       const cmd = [
         "/bin/sh",
         "-lc",
-        "su -l guest",
+        "apk add --quiet --no-progress shadow bash acl; mkdir -p /home/guest; setfacl -m u:guest:rwx /home/guest; usermod -d /home/guest guest; chsh -s /bin/bash guest; su -l guest",
       ];
 
       try {
