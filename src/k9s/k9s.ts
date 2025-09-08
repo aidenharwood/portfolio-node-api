@@ -160,7 +160,7 @@ export function createWsServer(server: Server) {
 
       ws.on("data", (chunk: any) => {
         if(closed) return;
-        if (ws.readyState === ws.OPEN) stdinStream.emit(chunk);
+        if (ws.readyState === ws.OPEN) stdinStream.emit('data', chunk);
       });
       
       ws.on("message", (m) => {
