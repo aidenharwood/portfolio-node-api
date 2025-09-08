@@ -25,7 +25,7 @@ const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
   namespace: "k9s",
   body: {
     metadata: {
-      generateName: "k9s-pod",
+      generateName: "k9s-",
     },
     spec: {
       initContainers: [
@@ -183,24 +183,24 @@ export function createWsServer(server: Server) {
       try {
         ws.send(`Attempting to attach...\r\n`);
         console.log("Attempting to attach...");
-        // const attach = await createExec();
-        const attach = await createAttach();
+        const attach = await createExec();
+        // const attach = await createAttach();
         if (!attach) {
           shutdown("Could not create k8s attach");
           return;
         }
-        attach
-          .attach(
-          // .exec(
+        await attach
+          // .attach(
+          .exec(
             pod.metadata?.namespace ?? "",
             pod.metadata?.name ?? "",
             pod.spec?.containers?.[0].name ?? "",
-            // cmd,
+            cmd,
             stdoutStream,
             stderrStream,
             stdinStream,
             true, // tty
-            // () => shutdown("k9s attach closed")
+            () => shutdown("k9s attach closed")
           )
           .then(() => {
             ws.send(`Attached!\r\n`);
