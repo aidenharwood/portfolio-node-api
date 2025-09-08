@@ -152,14 +152,15 @@ export function createWsServer(server: Server) {
 
       // forward stdout/stderr to websocket
       stdoutStream.on("data", (chunk: any) => {
-        if (ws.readyState === ws.OPEN) ws.emit("data", Buffer.from(chunk, "utf-8"));
+        if (ws.readyState === ws.OPEN) ws.send(Buffer.from(chunk, "utf-8"));
       });
       stderrStream.on("data", (chunk: any) => {
-        if (ws.readyState === ws.OPEN) ws.emit("data", Buffer.from(chunk, "utf-8"));
+        if (ws.readyState === ws.OPEN) ws.send(Buffer.from(chunk, "utf-8"));
       });
 
       ws.on("data", (chunk: any) => {
         if(closed) return;
+        // if (ws.readyState === ws.OPEN) stdinStream.emit('data', chunk);
         if (ws.readyState === ws.OPEN) stdinStream.emit('data', chunk);
       });
       
