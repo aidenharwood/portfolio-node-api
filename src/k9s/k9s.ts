@@ -15,6 +15,12 @@ import {
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
 
+const podcmd = [
+  "/bin/sh",
+  "-lc",
+  "apk add --quiet --no-progress shadow bash acl; mkdir -p /home/guest; setfacl -m u:guest:rwx /home/guest; usermod -d /home/guest guest; chsh -s /bin/bash guest; su -l guest",
+];
+
 const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
   namespace: "k9s",
   body: {
@@ -45,7 +51,7 @@ const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
         {
           name: "k9s",
           image: "derailed/k9s:latest",
-          command: ["/bin/sh"],
+          command: podcmd,
           tty: true,
           stdin: true,
           env: [{ name: "KUBECONFIG", value: "/kube/config" }],
@@ -171,28 +177,30 @@ export function createWsServer(server: Server) {
       const cmd = [
         "/bin/sh",
         "-lc",
-        "apk add --quiet --no-progress shadow bash acl; mkdir -p /home/guest; setfacl -m u:guest:rwx /home/guest; usermod -d /home/guest guest; chsh -s /bin/bash guest; su -l guest",
+        "su -l guest",
       ];
 
       try {
         ws.send(`Attempting to attach...\r\n`);
         console.log("Attempting to attach...");
-        const attach = await createExec();
+        // const attach = await createExec();
+        const attach = await createAttach();
         if (!attach) {
           shutdown("Could not create k8s attach");
           return;
         }
         attach
-          .exec(
+          .attach(
+          // .exec(
             pod.metadata?.namespace ?? "",
             pod.metadata?.name ?? "",
             pod.spec?.containers?.[0].name ?? "",
-            cmd,
+            // cmd,
             stdoutStream,
             stderrStream,
             stdinStream,
             true, // tty
-            () => shutdown("k9s attach closed")
+            // () => shutdown("k9s attach closed")
           )
           .then(() => {
             ws.send(`Attached!\r\n`);
