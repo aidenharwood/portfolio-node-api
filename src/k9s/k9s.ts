@@ -177,24 +177,24 @@ export function createWsServer(server: Server) {
       try {
         ws.send(`Attempting to attach...\r\n`);
         console.log("Attempting to attach...");
-        const attach = await createExec();
-        // const attach = await createAttach();
+        // const attach = await createExec();
+        const attach = await createAttach();
         if (!attach) {
           shutdown("Could not create k8s attach");
           return;
         }
         await attach
-          // .attach(
-          .exec(
+          .attach(
+          // .exec(
             pod.metadata?.namespace ?? "",
             pod.metadata?.name ?? "",
             pod.spec?.containers?.[0].name ?? "",
-            cmd,
+            // cmd,
             stdoutStream,
             stderrStream,
             stdinStream,
             true, // tty
-            () => shutdown("k9s attach closed")
+            // () => shutdown("k9s attach closed")
           )
           .then(() => {
             ws.send(`Attached!\r\n`);
