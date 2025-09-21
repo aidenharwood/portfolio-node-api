@@ -4,7 +4,7 @@ import fm from "front-matter";
 import slugify from "slugify";
 import { marked } from "marked";
 
-const POSTS_DIR = path.join(process.cwd(), "blog");
+const PROJECTS_DIR = path.join(process.cwd(), "projects");
 
 marked.use({
   renderer: {
@@ -41,17 +41,27 @@ marked.use({
   },
 });
 
-export interface BlogPostMeta {
+export interface ProjectMeta {
   title: string;
+  description: string;
   date: string;
   slug: string;
   excerpt?: string;
+  tags?: string[];
+  image?: string;
+  github?: string;
+  demo?: string;
+  featured?: boolean;
   body: string | Promise<string>;
   rawContent?: string;
   file: string;
 }
 
 function getMarkdownFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  
   return fs.readdirSync(dir).flatMap((file) => {
     const fullPath = path.join(dir, file);
     const stat = fs.lstatSync(fullPath);
@@ -61,17 +71,17 @@ function getMarkdownFiles(dir: string): string[] {
     if (stat.isDirectory()) {
       return getMarkdownFiles(fullPath);
     }
-    return file.endsWith(".md") ? [path.relative(POSTS_DIR, fullPath)] : [];
+    return file.endsWith(".md") ? [path.relative(PROJECTS_DIR, fullPath)] : [];
   });
 }
 
-export function getAllPostsMeta() {
-  const files = getMarkdownFiles(POSTS_DIR);
+export function getAllProjectsMeta() {
+  const files = getMarkdownFiles(PROJECTS_DIR);
   return files
     .map((file) => {
-      const raw = fs.readFileSync(path.join(POSTS_DIR, file), "utf-8");
-      const { attributes, body } = fm<BlogPostMeta>(raw);
-      const slug = slugify(attributes.title || file, {
+      const raw = fs.readFileSync(path.join(PROJECTS_DIR, file), "utf-8");
+      const { attributes, body } = fm<ProjectMeta>(raw);
+      const slug = attributes.slug || slugify(attributes.title || file, {
         lower: true,
         strict: true,
       });
@@ -80,26 +90,32 @@ export function getAllPostsMeta() {
       const dateEpoch = dateStr ? new Date(dateStr).getTime() : 0;
       return {
         title: attributes.title || file,
+        description: attributes.description || "",
         date: dateStr, // Send raw date string, let frontend format it
         dateEpoch,
-        excerpt: attributes.excerpt || body.slice(0, 120) + "...",
+        excerpt: attributes.excerpt || body.slice(0, 150) + "...",
         slug,
+        tags: attributes.tags || [],
+        image: attributes.image || "",
+        github: attributes.github || "",
+        demo: attributes.demo || "",
+        featured: attributes.featured || false,
         file,
       };
     })
     .sort((a, b) => b.dateEpoch - a.dateEpoch);
 }
 
-export function getPostBySlug(slug: string) {
-  const posts = getAllPostsMeta();
-  const postMeta = posts.find((p) => p.slug === slug);
-  if (!postMeta) return null;
-  const raw = fs.readFileSync(path.join(POSTS_DIR, postMeta.file), "utf-8");
+export function getProjectBySlug(slug: string) {
+  const projects = getAllProjectsMeta();
+  const projectMeta = projects.find((p) => p.slug === slug);
+  if (!projectMeta) return null;
+  const raw = fs.readFileSync(path.join(PROJECTS_DIR, projectMeta.file), "utf-8");
   const { attributes, body } = fm(raw);
   return {
-    ...postMeta,
+    ...projectMeta,
     body: marked.parse(body),
     rawContent: body, // Include raw markdown content
-    date: postMeta.date || "",
+    date: projectMeta.date || "",
   };
 }
