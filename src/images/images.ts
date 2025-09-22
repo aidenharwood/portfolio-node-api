@@ -15,61 +15,67 @@ function getImageFiles(dir: string): string[] {
     return [];
   }
   
-  return fs.readdirSync(dir).flatMap((file) => {
-    const fullPath = path.join(dir, file);
-    const stat = fs.lstatSync(fullPath);
+  const results: string[] = [];
+  
+  function scanDirectory(currentDir: string, relativePath: string = '') {
+    const items = fs.readdirSync(currentDir);
     
-    // Skip Git-related directories and hidden directories
-    if (file.startsWith('.') || file === 'node_modules') {
-      return [];
-    }
-    
-    if (stat.isSymbolicLink()) {
-      // For symlinks, resolve them and check if they point to valid image files
-      try {
-        const resolvedPath = fs.realpathSync(fullPath);
-        const resolvedStat = fs.statSync(resolvedPath);
-        
-        if (resolvedStat.isFile()) {
-          const ext = path.extname(resolvedPath).toLowerCase();
-          if (SUPPORTED_FORMATS.includes(ext)) {
-            // Return the original symlink path (not the resolved path)
-            return [path.relative(IMAGES_DIR, fullPath)];
-          }
-        } else if (resolvedStat.isDirectory()) {
-          // If symlink points to a directory, recursively scan it
-          return getImageFiles(resolvedPath).map(relativePath => 
-            path.join(path.relative(IMAGES_DIR, fullPath), relativePath)
-          );
-        }
-      } catch (error) {
-        // Skip broken symlinks
-        console.warn(`Skipping broken symlink: ${fullPath}`);
+    for (const item of items) {
+      const fullPath = path.join(currentDir, item);
+      const stat = fs.lstatSync(fullPath);
+      
+      // Skip Git-related directories and hidden directories
+      if (item.startsWith('.') || item === 'node_modules') {
+        continue;
       }
-      return [];
+      
+      if (stat.isSymbolicLink()) {
+        // For symlinks, resolve them and check if they point to valid image files
+        try {
+          const resolvedPath = fs.realpathSync(fullPath);
+          const resolvedStat = fs.statSync(resolvedPath);
+          
+          if (resolvedStat.isFile()) {
+            const ext = path.extname(resolvedPath).toLowerCase();
+            if (SUPPORTED_FORMATS.includes(ext)) {
+              const itemRelativePath = relativePath ? path.join(relativePath, item) : item;
+              results.push(itemRelativePath);
+            }
+          } else if (resolvedStat.isDirectory()) {
+            // If symlink points to a directory, recursively scan it
+            const itemRelativePath = relativePath ? path.join(relativePath, item) : item;
+            scanDirectory(resolvedPath, itemRelativePath);
+          }
+        } catch (error) {
+          // Skip broken symlinks
+          console.warn(`Skipping broken symlink: ${fullPath}`);
+        }
+        continue;
+      }
+      
+      if (stat.isDirectory()) {
+        // Recursively scan subdirectories
+        const itemRelativePath = relativePath ? path.join(relativePath, item) : item;
+        scanDirectory(fullPath, itemRelativePath);
+      } else {
+        // Check if it's a supported image format
+        const ext = path.extname(item).toLowerCase();
+        if (SUPPORTED_FORMATS.includes(ext)) {
+          const itemRelativePath = relativePath ? path.join(relativePath, item) : item;
+          results.push(itemRelativePath);
+        }
+      }
     }
-    
-    if (stat.isDirectory()) {
-      // Recursively get files from subdirectories
-      const subFiles = getImageFiles(fullPath);
-      // Filter out worktree paths from the results
-      return subFiles.map(subFile => {
-        const fullSubPath = path.relative(IMAGES_DIR, path.join(fullPath, subFile));
-        // Remove worktree prefix if present
-        const cleanPath = fullSubPath.replace(/^[^/]+\.git\/\.worktrees\/[^/]+\//, '');
-        return cleanPath;
-      }).filter(cleanPath => cleanPath && !cleanPath.includes('.git'));
-    }
-    
-    const ext = path.extname(file).toLowerCase();
-    if (SUPPORTED_FORMATS.includes(ext)) {
-      // Return relative path from IMAGES_DIR, clean of worktree paths
-      const relativePath = path.relative(IMAGES_DIR, fullPath);
-      const cleanPath = relativePath.replace(/^[^/]+\.git\/\.worktrees\/[^/]+\//, '');
-      return cleanPath && !cleanPath.includes('.git') ? [cleanPath] : [];
-    }
-    return [];
-  }).filter(Boolean); // Remove any empty/undefined entries
+  }
+  
+  scanDirectory(dir);
+  
+  // Clean up worktree paths from all results
+  return results.map(filePath => {
+    // Remove any worktree prefix patterns
+    const cleanPath = filePath.replace(/^[^/\\]+\.git[/\\]\.worktrees[/\\][^/\\]+[/\\]/, '');
+    return cleanPath;
+  }).filter(cleanPath => cleanPath && !cleanPath.includes('.git'));
 }
 
 /**
