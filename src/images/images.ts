@@ -51,16 +51,25 @@ function getImageFiles(dir: string): string[] {
     
     if (stat.isDirectory()) {
       // Recursively get files from subdirectories
-      return getImageFiles(fullPath);
+      const subFiles = getImageFiles(fullPath);
+      // Filter out worktree paths from the results
+      return subFiles.map(subFile => {
+        const fullSubPath = path.relative(IMAGES_DIR, path.join(fullPath, subFile));
+        // Remove worktree prefix if present
+        const cleanPath = fullSubPath.replace(/^[^/]+\.git\/\.worktrees\/[^/]+\//, '');
+        return cleanPath;
+      }).filter(cleanPath => cleanPath && !cleanPath.includes('.git'));
     }
     
     const ext = path.extname(file).toLowerCase();
     if (SUPPORTED_FORMATS.includes(ext)) {
-      // Return relative path from IMAGES_DIR
-      return [path.relative(IMAGES_DIR, fullPath)];
+      // Return relative path from IMAGES_DIR, clean of worktree paths
+      const relativePath = path.relative(IMAGES_DIR, fullPath);
+      const cleanPath = relativePath.replace(/^[^/]+\.git\/\.worktrees\/[^/]+\//, '');
+      return cleanPath && !cleanPath.includes('.git') ? [cleanPath] : [];
     }
     return [];
-  });
+  }).filter(Boolean); // Remove any empty/undefined entries
 }
 
 /**
@@ -68,6 +77,46 @@ function getImageFiles(dir: string): string[] {
  */
 export function getAllImages(): string[] {
   return getImageFiles(IMAGES_DIR);
+}
+
+/**
+ * Find the actual file path, handling worktree structures
+ */
+function findActualImagePath(imagePath: string): string | null {
+  const directPath = path.join(IMAGES_DIR, imagePath);
+  
+  // First try the direct path
+  if (fs.existsSync(directPath)) {
+    return directPath;
+  }
+  
+  // If not found, search in worktree directories
+  try {
+    const imageDir = fs.readdirSync(IMAGES_DIR);
+    for (const item of imageDir) {
+      const itemPath = path.join(IMAGES_DIR, item);
+      const stat = fs.lstatSync(itemPath);
+      
+      if (stat.isDirectory() && item.endsWith('.git')) {
+        // Look in the .worktrees directory
+        const worktreesPath = path.join(itemPath, '.worktrees');
+        if (fs.existsSync(worktreesPath)) {
+          const worktrees = fs.readdirSync(worktreesPath);
+          for (const worktree of worktrees) {
+            const worktreePath = path.join(worktreesPath, worktree);
+            const possiblePath = path.join(worktreePath, imagePath);
+            if (fs.existsSync(possiblePath)) {
+              return possiblePath;
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error searching for image:', error);
+  }
+  
+  return null;
 }
 
 /**
@@ -81,29 +130,24 @@ export function serveImage(req: Request, res: Response) {
     return res.status(400).json({ error: 'Invalid path' });
   }
   
-  const filePath = path.join(IMAGES_DIR, imagePath);
+  // Find the actual file path (handles worktree resolution)
+  const actualFilePath = findActualImagePath(imagePath);
   
-  // Ensure the resolved path is still within IMAGES_DIR (additional security)
-  if (!filePath.startsWith(IMAGES_DIR)) {
-    return res.status(400).json({ error: 'Invalid path' });
-  }
-  
-  // Check if file exists (using lstat to handle symlinks)
-  if (!fs.existsSync(filePath)) {
+  if (!actualFilePath) {
     return res.status(404).json({ error: 'Image not found' });
   }
   
-  let actualFilePath = filePath;
-  let stat = fs.lstatSync(filePath);
-  
-  // If it's a symlink, resolve it
-  if (stat.isSymbolicLink()) {
-    try {
-      actualFilePath = fs.realpathSync(filePath);
-      stat = fs.statSync(actualFilePath);
-    } catch (error) {
-      return res.status(404).json({ error: 'Broken symlink' });
+  let stat;
+  try {
+    stat = fs.lstatSync(actualFilePath);
+    
+    // If it's a symlink, resolve it
+    if (stat.isSymbolicLink()) {
+      const resolvedPath = fs.realpathSync(actualFilePath);
+      stat = fs.statSync(resolvedPath);
     }
+  } catch (error) {
+    return res.status(404).json({ error: 'Image not found' });
   }
   
   // Check if it's a file (not a directory)
