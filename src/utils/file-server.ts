@@ -36,6 +36,53 @@ export function getFilesByExtensions(dir: string, extensions: string[]): string[
  */
 
 /**
+ * Common file serving utilities
+ */
+
+/**
+ * Resolve the actual directory path, handling git-sync symlink structure
+ */
+function resolveDirectory(dir: string): string {
+  if (!fs.existsSync(dir)) {
+    return dir;
+  }
+  
+  // Check if there's a 'current' symlink (git-sync structure)
+  const currentPath = path.join(dir, 'current');
+  if (fs.existsSync(currentPath)) {
+    const stat = fs.lstatSync(currentPath);
+    if (stat.isSymbolicLink()) {
+      try {
+        // Resolve the symlink to get the actual directory
+        const resolvedPath = fs.realpathSync(currentPath);
+        if (fs.existsSync(resolvedPath)) {
+          return resolvedPath;
+        }
+      } catch (error) {
+        console.warn(`Failed to resolve symlink ${currentPath}:`, error);
+      }
+    }
+  }
+  
+  return dir;
+}
+
+/**
+ * Common content types for different file extensions
+ */
+export const IMAGE_CONTENT_TYPES = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon'
+};
+
+export const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'];
+
+/**
  * Serve a file with appropriate headers and error handling
  */
 export function serveFile(
@@ -46,6 +93,7 @@ export function serveFile(
   contentTypes: { [key: string]: string },
   pathParam: string = 'filename'
 ) {
+  const resolvedBaseDir = resolveDirectory(baseDir);
   const filePath = req.params[pathParam];
   
   // Basic security: prevent directory traversal
@@ -54,7 +102,7 @@ export function serveFile(
   }
   
   // Construct the full file path
-  const fullPath = path.join(baseDir, filePath);
+  const fullPath = path.join(resolvedBaseDir, filePath);
   
   // Check if file exists
   if (!fs.existsSync(fullPath)) {
@@ -105,18 +153,3 @@ export function serveFile(
     }
   });
 }
-
-/**
- * Common content types for different file extensions
- */
-export const IMAGE_CONTENT_TYPES = {
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
-};
-
-export const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'];

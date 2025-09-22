@@ -9,18 +9,62 @@ import { marked } from "marked";
  */
 
 /**
+ * Resolve the actual directory path, handling git-sync symlink structure
+ */
+function resolveContentDirectory(dir: string): string {
+  if (!fs.existsSync(dir)) {
+    return dir;
+  }
+  
+  // Check if there's a 'current' symlink (git-sync structure)
+  const currentPath = path.join(dir, 'current');
+  if (fs.existsSync(currentPath)) {
+    const stat = fs.lstatSync(currentPath);
+    if (stat.isSymbolicLink()) {
+      try {
+        // Resolve the symlink to get the actual directory
+        const resolvedPath = fs.realpathSync(currentPath);
+        if (fs.existsSync(resolvedPath)) {
+          return resolvedPath;
+        }
+      } catch (error) {
+        console.warn(`Failed to resolve symlink ${currentPath}:`, error);
+      }
+    }
+  }
+  
+  return dir;
+}
+
+/**
  * Get all files with specified extensions recursively from a directory
  */
 export function getFilesByExtensions(dir: string, extensions: string[]): string[] {
-  if (!fs.existsSync(dir)) {
+  const resolvedDir = resolveContentDirectory(dir);
+  
+  if (!fs.existsSync(resolvedDir)) {
     return [];
   }
   
-  return fs.readdirSync(dir).flatMap((file) => {
-    const fullPath = path.join(dir, file);
+  return fs.readdirSync(resolvedDir).flatMap((file) => {
+    const fullPath = path.join(resolvedDir, file);
     const stat = fs.lstatSync(fullPath);
     
     if (stat.isSymbolicLink()) {
+      // Handle symlinks by resolving them
+      try {
+        const resolvedPath = fs.realpathSync(fullPath);
+        const resolvedStat = fs.statSync(resolvedPath);
+        
+        if (resolvedStat.isDirectory()) {
+          return getFilesByExtensions(fullPath, extensions).map(subFile => path.join(file, subFile));
+        } else if (resolvedStat.isFile()) {
+          const ext = path.extname(file).toLowerCase();
+          return extensions.includes(ext) ? [file] : [];
+        }
+      } catch (error) {
+        console.warn(`Failed to resolve symlink ${fullPath}:`, error);
+      }
       return [];
     }
     
@@ -65,14 +109,130 @@ export function setupMarkedRenderer() {
 
         if (lang === "mermaid") return `<pre class="mermaid">${text}</pre>`;
 
+        // Parse filename from various formats: filename=, title=, or just the filename
         parts.slice(1).forEach((p) => {
-          const m = p.match(/(?:filename|title)=(.+)/);
-          if (m) filename = decodeURIComponent(m[1]);
+          const filenameMatch = p.match(/(?:filename|title)=(.+)/);
+          if (filenameMatch) {
+            filename = decodeURIComponent(filenameMatch[1]);
+          } else if (!filename && p.includes('.')) {
+            // If no explicit filename= but there's a part with a dot, treat it as filename
+            filename = p;
+          }
         });
 
-        const header = filename ? `<div class="code-header">${filename}</div>` : "";
+        const languageClass = lang ? `language-${lang}` : 'language-text';
+        const header = filename ? 
+          `<div class="markdown-code-header">📄 ${filename}</div>` : "";
 
-        return `<pre>${header}<code class="language-${lang}">${text}</code></pre>`;
+        // Use unique class names to avoid conflicts with existing CSS
+        return `${header}<pre class="markdown-code-block ${languageClass}"><code>${text}</code></pre>
+
+        <style>
+        .markdown-code-header {
+          background: #f6f8fa !important;
+          color: #24292f !important;
+          padding: 0.5rem 1rem !important;
+          font-size: 0.875rem !important;
+          font-weight: 500 !important;
+          border: 1px solid #d0d7de !important;
+          border-bottom: none !important;
+          border-radius: 0.375rem 0.375rem 0 0 !important;
+          margin: 1rem 0 0 0 !important;
+          font-family: ui-monospace, 'SF Mono', monospace !important;
+        }
+        
+        .markdown-code-block {
+          background: #f6f8fa !important;
+          color: #24292f !important;
+          border: 1px solid #d0d7de !important;
+          border-radius: 0.375rem !important;
+          padding: 1rem !important;
+          margin: 1rem 0 !important;
+          overflow-x: auto !important;
+          line-height: 1.45 !important;
+          font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+        }
+        
+        .markdown-code-header + .markdown-code-block {
+          border-radius: 0 0 0.375rem 0.375rem !important;
+          margin-top: 0 !important;
+        }
+        
+        .markdown-code-block code {
+          background: transparent !important;
+          padding: 0 !important;
+          border: none !important;
+          font-size: inherit !important;
+          color: inherit !important;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+          .markdown-code-header {
+            background: #161b22 !important;
+            color: #e6edf3 !important;
+            border-color: #30363d !important;
+          }
+          .markdown-code-block {
+            background: #0d1117 !important;
+            color: #e6edf3 !important;
+            border-color: #30363d !important;
+          }
+        }
+        
+        .dark .markdown-code-header {
+          background: #161b22 !important;
+          color: #e6edf3 !important;
+          border-color: #30363d !important;
+        }
+        
+        .dark .markdown-code-block {
+          background: #0d1117 !important;
+          color: #e6edf3 !important;
+          border-color: #30363d !important;
+        }
+        </style>`;
+      },
+      codespan(code) {
+        // Use unique class for inline code to avoid conflicts
+        return `<code class="markdown-inline-code">${code}</code>
+        <style>
+        .markdown-inline-code {
+          background: #f6f8fa !important;
+          color: #d73a49 !important;
+          padding: 0.2em 0.4em !important;
+          border-radius: 0.25rem !important;
+          font-size: 0.875em !important;
+          font-family: ui-monospace, 'SF Mono', monospace !important;
+          border: 1px solid #d0d7de !important;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+          .markdown-inline-code {
+            background: #161b22 !important;
+            color: #f85149 !important;
+            border-color: #30363d !important;
+          }
+        }
+        
+        .dark .markdown-inline-code {
+          background: #161b22 !important;
+          color: #f85149 !important;
+          border-color: #30363d !important;
+        }
+        </style>`;
+      },
+      blockquote(quote) {
+        // Enhanced blockquote styling with fallback colors
+        return `<blockquote style="border-left: 4px solid #0969da; background: #f6f8fa; padding: 1rem; margin: 1rem 0; font-style: italic; color: #24292f; border-radius: 0 0.375rem 0.375rem 0;">
+          ${quote}
+        </blockquote>
+        <style>
+        .dark blockquote {
+          border-left-color: #2f81f7 !important;
+          background: #161b22 !important;
+          color: #e6edf3 !important;
+        }
+        </style>`;
       },
     },
   });
@@ -111,10 +271,12 @@ export function getContentMeta<T>(
   dir: string, 
   transform: (attributes: any, body: string, file: string, dateStr: string, dateEpoch: number) => T
 ): T[] {
+  const resolvedDir = resolveContentDirectory(dir);
   const files = getMarkdownFiles(dir);
+  
   return files
     .map((file) => {
-      const raw = fs.readFileSync(path.join(dir, file), "utf-8");
+      const raw = fs.readFileSync(path.join(resolvedDir, file), "utf-8");
       const { attributes, body } = parseMarkdownContent(raw);
       const { dateStr, dateEpoch } = extractDate(attributes, file);
       return transform(attributes, body, file, dateStr, dateEpoch);
@@ -131,10 +293,11 @@ export function getContentBySlug<T extends { slug: string; file: string }>(
   allContent: T[],
   transform?: (attributes: any, body: string, meta: T) => any
 ): any | null {
+  const resolvedDir = resolveContentDirectory(dir);
   const contentMeta = allContent.find((item) => item.slug === slug);
   if (!contentMeta) return null;
   
-  const raw = fs.readFileSync(path.join(dir, contentMeta.file), "utf-8");
+  const raw = fs.readFileSync(path.join(resolvedDir, contentMeta.file), "utf-8");
   const { attributes, body } = parseMarkdownContent(raw);
   
   const result = {

@@ -1,7 +1,5 @@
 import path from "path";
 import fs from "fs";
-import slugify from "slugify";
-import { marked } from "marked";
 import { 
   getContentMeta, 
   getContentBySlug, 
@@ -32,24 +30,6 @@ export interface ProjectMeta {
 export interface Project extends ProjectMeta {
   body: string;
   rawContent?: string;
-}
-
-function getMarkdownFiles(dir: string): string[] {
-  if (!fs.existsSync(dir)) {
-    return [];
-  }
-  
-  return fs.readdirSync(dir).flatMap((file) => {
-    const fullPath = path.join(dir, file);
-    const stat = fs.lstatSync(fullPath);
-    if (stat.isSymbolicLink()) {
-      return [];
-    }
-    if (stat.isDirectory()) {
-      return getMarkdownFiles(fullPath);
-    }
-    return file.endsWith(".md") ? [path.relative(PROJECTS_DIR, fullPath)] : [];
-  });
 }
 
 export function getAllProjectsMeta() {

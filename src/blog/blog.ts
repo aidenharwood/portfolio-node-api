@@ -1,13 +1,9 @@
 import path from "path";
-import fs from "fs";
-import slugify from "slugify";
-import { marked } from "marked";
 import { 
   getContentMeta, 
   getContentBySlug, 
   setupMarkedRenderer, 
   generateSlug,
-  parseMarkdownContent 
 } from "../utils/content";
 
 const POSTS_DIR = path.join(process.cwd(), "blog");
@@ -27,20 +23,6 @@ export interface BlogPostMeta {
 export interface BlogPost extends BlogPostMeta {
   body: string;
   rawContent?: string;
-}
-
-function getMarkdownFiles(dir: string): string[] {
-  return fs.readdirSync(dir).flatMap((file) => {
-    const fullPath = path.join(dir, file);
-    const stat = fs.lstatSync(fullPath);
-    if (stat.isSymbolicLink()) {
-      return [];
-    }
-    if (stat.isDirectory()) {
-      return getMarkdownFiles(fullPath);
-    }
-    return file.endsWith(".md") ? [path.relative(POSTS_DIR, fullPath)] : [];
-  });
 }
 
 export function getAllPostsMeta() {

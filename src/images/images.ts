@@ -1,7 +1,7 @@
 import path from "path";
 import { Request, Response } from "express";
+import { getFilesByExtensions } from "../utils/content";
 import { 
-  getFilesByExtensions, 
   serveFile, 
   SUPPORTED_IMAGE_FORMATS, 
   IMAGE_CONTENT_TYPES 

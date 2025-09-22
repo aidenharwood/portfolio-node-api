@@ -3,13 +3,10 @@ import {
   createPod,
   deletePod,
   getPodStatus,
-  createAttach,
   createExec,
 } from "../utils/k8s";
 import {
-  Attach,
   CoreV1ApiCreateNamespacedPodRequest,
-  Exec,
   V1Pod,
 } from "@kubernetes/client-node";
 import { WebSocketServer, WebSocket } from "ws";
