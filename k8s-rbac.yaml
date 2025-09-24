@@ -1,0 +1,71 @@
+# RBAC configuration for k9s functionality
+# This should be included in your Helm chart or applied separately
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: portfolio-api-sa
+  namespace: default # or your target namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: portfolio-api-reader
+rules:
+# Core resources for k9s functionality
+- apiGroups: [""]
+  resources: 
+    - "pods"
+    - "pods/log"
+    - "pods/status"
+    - "services"
+    - "endpoints"
+    - "nodes"
+    - "namespaces"
+    - "configmaps"
+    - "secrets"
+    - "persistentvolumes"
+    - "persistentvolumeclaims"
+    - "events"
+  verbs: ["get", "list", "watch"]
+
+# Apps resources
+- apiGroups: ["apps"]
+  resources:
+    - "deployments"
+    - "replicasets"
+    - "daemonsets"
+    - "statefulsets"
+  verbs: ["get", "list", "watch"]
+
+# Extensions and networking
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources:
+    - "ingresses"
+    - "networkpolicies"
+  verbs: ["get", "list", "watch"]
+
+# Metrics (if metrics-server is available)
+- apiGroups: ["metrics.k8s.io"]
+  resources:
+    - "pods"
+    - "nodes"
+  verbs: ["get", "list"]
+
+# Custom resources (adjust based on your cluster)
+- apiGroups: ["argoproj.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: portfolio-api-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: portfolio-api-reader
+subjects:
+- kind: ServiceAccount
+  name: portfolio-api-sa
+  namespace: default # or your target namespace

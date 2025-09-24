@@ -7,6 +7,9 @@ import { getStatusBadges } from "./argocd/argocd";
 import http from "http";
 import { createWsServer } from "./k9s/k9s";
 import bl4Router from "./bl4/bl4-api";
+import { getServerConfig } from "./config/app-config";
+import { createLogger } from "./utils/logger";
+import { healthCheck, terminalStats, configInfo } from "./routes/health";
 
 const app = express();
 app.use(cors());
@@ -15,6 +18,12 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Mount BL4 save editor API
 app.use('/api/bl4', bl4Router);
+
+// Health and monitoring endpoints
+app.get('/health', healthCheck);
+app.get('/api/health', healthCheck);
+app.get('/api/terminal/stats', terminalStats);
+app.get('/api/config', configInfo);
 
 // Steam profile resolution types
 interface SteamProfile {
@@ -283,12 +292,23 @@ app.get(/^\/images\/(.*)/, (req: Request, res: Response) => {
   serveImage(req, res);
 });
 
+// Initialize server with configuration
+const serverConfig = getServerConfig();
+const logger = createLogger('server');
+
 const server = http.createServer(app);
 
-const PORT = process.env.PORT || 4000;
-server.listen(PORT, () =>
-  console.log(`API running on http://0.0.0.0:${PORT}`)
-);
-
-
+// Initialize K9s WebSocket server
 createWsServer(server);
+
+server.listen(serverConfig.port, serverConfig.host, () => {
+  logger.info('Portfolio API server started', {
+    port: serverConfig.port,
+    host: serverConfig.host,
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      api: `http://${serverConfig.host}:${serverConfig.port}`,
+      websocket: `ws://${serverConfig.host}:${serverConfig.port}/k9s`
+    }
+  });
+});
