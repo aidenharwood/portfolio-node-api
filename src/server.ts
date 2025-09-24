@@ -6,9 +6,15 @@ import { getAllImages, serveImage } from "./images/images";
 import { getStatusBadges } from "./argocd/argocd";
 import http from "http";
 import { createWsServer } from "./k9s/k9s";
+import bl4Router from "./bl4/bl4-api";
 
 const app = express();
 app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Mount BL4 save editor API
+app.use('/api/bl4', bl4Router);
 
 app.get("/api/posts", (req: Request, res: Response) => {
   res.json(getAllPostsMeta());
@@ -64,7 +70,7 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () =>
-  console.log(`API running on http://localhost:${PORT}`)
+  console.log(`API running on http://0.0.0.0:${PORT}`)
 );
 
 
