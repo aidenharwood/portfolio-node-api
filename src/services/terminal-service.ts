@@ -1,7 +1,10 @@
 /**
  * Terminal Service - Manages PTY processes and their lifecycle
  */
-import * as pty from 'node-pty';
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { PassThrough } from 'stream';
+import { k9sPodManifest } from '../k9s/k9s';
+import { createPod, deletePod, createExec } from '../utils/k8s';
 import { EventEmitter } from 'events';
 
 export interface TerminalConfig {
@@ -23,7 +26,10 @@ export interface TerminalMessage {
 }
 
 export class TerminalSession extends EventEmitter {
-  private ptyProcess: pty.IPty | null = null;
+  private childProcess: ChildProcessWithoutNullStreams | null = null;
+  private podName: string | null = null;
+  private podNamespace: string = 'k9s';
+  private execStream: PassThrough | null = null;
   private closed = false;
   public readonly sessionId: string;
 
@@ -36,68 +42,80 @@ export class TerminalSession extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    if (this.ptyProcess) {
+    if (this.childProcess || this.execStream) {
       throw new Error('Terminal session already started');
     }
 
-    const defaultConfig = this.getDefaultConfig();
-    const mergedConfig = { ...defaultConfig, ...this.config };
-
-    try {
-      this.ptyProcess = pty.spawn(
-        mergedConfig.shell || 'sh',
-        mergedConfig.shellArgs || ['-c', this.buildStartupCommand()],
-        {
-          name: 'xterm-256color',
-          cols: mergedConfig.cols,
-          rows: mergedConfig.rows,
-          cwd: mergedConfig.cwd || process.env.HOME || '/tmp',
-          env: mergedConfig.env || this.getDefaultEnv()
-        }
-      );
-
-      this.setupPtyHandlers();
-      this.emit('started', { pid: this.ptyProcess.pid });
-
-    } catch (error) {
-      this.emit('error', error);
-      throw error;
+    // Step 1: Create the pod using the k9sPodManifest
+    const pod = await createPod(k9sPodManifest, {});
+    if (!pod || !pod.metadata || !pod.metadata.name) {
+      throw new Error('Failed to create pod');
     }
+    this.podName = pod.metadata.name;
+
+    // Step 2: Wait for pod to be running
+    let phase = '';
+    for (let i = 0; i < 30; i++) {
+      const statusPod = await (await import('../utils/k8s')).getPodStatus(pod);
+  phase = statusPod?.status?.phase || '';
+      if (phase === 'Running') break;
+      await new Promise(res => setTimeout(res, 1000));
+    }
+    if (phase !== 'Running') {
+      throw new Error('Pod did not become ready');
+    }
+
+    // Step 3: Exec into the pod shell
+    const exec = await createExec();
+    if (!exec) throw new Error('Failed to create exec');
+    const stream = new PassThrough();
+    this.execStream = stream;
+    exec.exec(
+      this.podNamespace,
+      this.podName!,
+      'k9s', // container name
+      ['/bin/sh'],
+      stream,
+      stream,
+      stream,
+      true, // tty
+      (status: any) => {
+        if (status && status.status !== 'Success') {
+          this.emit('error', new Error('Exec failed: ' + JSON.stringify(status)));
+        }
+      }
+    );
+    this.setupStreamHandlers();
+    this.emit('started', { pod: this.podName });
   }
 
-  private setupPtyHandlers(): void {
-    if (!this.ptyProcess) return;
-
-    this.ptyProcess.onData((data: string) => {
+  private setupStreamHandlers(): void {
+    if (!this.execStream) return;
+    this.execStream.on('data', (data: Buffer) => {
       if (!this.closed) {
-        this.emit('data', data);
+        this.emit('data', data.toString());
       }
     });
-
-    this.ptyProcess.onExit(({ exitCode, signal }) => {
-      this.emit('exit', { exitCode, signal });
-      this.cleanup();
+    this.execStream.on('error', (err) => {
+      this.emit('error', err);
     });
+    // No exit event for stream, rely on session close
   }
 
   write(data: string): void {
-    if (this.ptyProcess && !this.closed) {
-      this.ptyProcess.write(data);
+    if (this.execStream && !this.closed) {
+      this.execStream.write(data);
     }
   }
 
+  // Resize is not supported with child_process.spawn (no PTY). Stub for compatibility.
   resize(cols: number, rows: number): void {
-    if (this.ptyProcess && !this.closed) {
-      this.ptyProcess.resize(cols, rows);
-      this.config.cols = cols;
-      this.config.rows = rows;
-    }
+    this.config.cols = cols;
+    this.config.rows = rows;
   }
 
   kill(signal?: string): void {
-    if (this.ptyProcess && !this.closed) {
-      this.ptyProcess.kill(signal);
-    }
+    this.close();
   }
 
   close(): void {
@@ -105,17 +123,20 @@ export class TerminalSession extends EventEmitter {
     this.emit('closed');
   }
 
-  private cleanup(): void {
+  private async cleanup(): Promise<void> {
     if (this.closed) return;
-    
     this.closed = true;
-    if (this.ptyProcess) {
+    if (this.execStream) {
+      this.execStream.end();
+      this.execStream = null;
+    }
+    if (this.podName) {
       try {
-        this.ptyProcess.kill();
-      } catch (error) {
-        console.warn('Error killing PTY process:', error);
+        await deletePod({ metadata: { name: this.podName, namespace: this.podNamespace } } as any);
+      } catch (e) {
+        console.warn('Error deleting pod:', e);
       }
-      this.ptyProcess = null;
+      this.podName = null;
     }
   }
 
@@ -150,11 +171,11 @@ export class TerminalSession extends EventEmitter {
   }
 
   get isActive(): boolean {
-    return !this.closed && this.ptyProcess !== null;
+    return !this.closed && this.childProcess !== null;
   }
 
   get pid(): number | undefined {
-    return this.ptyProcess?.pid;
+    return this.childProcess?.pid;
   }
 }
 

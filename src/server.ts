@@ -7,6 +7,7 @@ import { getStatusBadges } from "./argocd/argocd";
 import http from "http";
 import { createWsServer } from "./k9s/k9s";
 import bl4Router from "./bl4/bl4-api";
+import convertYamlToSavRouter from "./routes/convert-yaml-to-sav";
 import { getServerConfig } from "./config/app-config";
 import { createLogger } from "./utils/logger";
 import { healthCheck, terminalStats, configInfo } from "./routes/health";
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Mount BL4 save editor API
 app.use('/api/bl4', bl4Router);
+app.use('/api/bl4', convertYamlToSavRouter);
 
 // Health and monitoring endpoints
 app.get('/health', healthCheck);

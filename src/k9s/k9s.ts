@@ -23,7 +23,7 @@ import {
 const logger = createLogger('k9s-legacy');
 
 // Legacy pod manifest (kept for reference)
-const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
+export const k9sPodManifest: CoreV1ApiCreateNamespacedPodRequest = {
   namespace: "k9s",
   body: {
     metadata: {
