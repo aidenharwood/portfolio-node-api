@@ -54,7 +54,8 @@ const saveDataStore: Map<string, SaveData> = new Map();
 // Interface for folder file data
 interface FolderFileData {
     name: string;
-    yamlContent: string;
+    yamlContent: string;        // Raw YAML string for display
+    jsonData: any;              // Parsed JSON object for editing
     size: number;
     characterInfo?: {
         name: string;
@@ -170,7 +171,8 @@ router.post('/upload-folder', uploadFolder.array('saveFiles', 20), (req, res) =>
                 
                 processedFiles.push({
                     name: file.originalname,
-                    yamlContent: saveData.originalYaml, // Use raw YAML instead of abstracted data
+                    yamlContent: saveData.originalYaml, // Raw YAML string for display
+                    jsonData: saveData.yamlData,        // Parsed JSON object for editing
                     size: file.size,
                     characterInfo // Add character info for tab display
                 });
@@ -328,7 +330,14 @@ router.post('/download/:sessionId', (req, res) => {
 router.post('/download-folder/:sessionId', (req, res) => {
     try {
         const { sessionId } = req.params;
-        const { steamId, modifiedFiles }: { steamId: string, modifiedFiles: Array<{ name: string, yamlContent: string }> } = req.body;
+        const { steamId, modifiedFiles }: { 
+            steamId: string, 
+            modifiedFiles: Array<{ 
+                name: string, 
+                jsonData?: any,           // JSON object for editing
+                yamlContent?: string      // YAML string (fallback)
+            }> 
+        } = req.body;
 
         const folderData = folderDataStore.get(sessionId);
         if (!folderData) {
@@ -358,8 +367,24 @@ router.post('/download-folder/:sessionId', (req, res) => {
         // Process each modified file
         for (const modifiedFile of modifiedFiles) {
             try {
+                let yamlContent: string;
+                
+                // Convert JSON data to YAML if provided, otherwise use yamlContent
+                if (modifiedFile.jsonData) {
+                    yamlContent = yaml.dump(modifiedFile.jsonData, {
+                        indent: 2,
+                        lineWidth: -1,
+                        noRefs: true,
+                        sortKeys: false
+                    });
+                } else if (modifiedFile.yamlContent) {
+                    yamlContent = modifiedFile.yamlContent;
+                } else {
+                    throw new Error('No valid data provided for file');
+                }
+                
                 // Re-encrypt the YAML content back to save file format
-                const encryptedSaveData = encryptYamlContentToSav(modifiedFile.yamlContent, steamId);
+                const encryptedSaveData = encryptYamlContentToSav(yamlContent, steamId);
                 
                 // Add to ZIP archive
                 archive.append(encryptedSaveData, { 
