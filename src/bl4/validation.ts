@@ -33,21 +33,6 @@ export function validatePlatformId(platformId: string): { isValid: boolean; erro
 }
 
 /**
- * Validate Steam ID format (legacy function for backward compatibility)
- * @deprecated Use validatePlatformId instead
- */
-export function validateSteamId(steamId: string): { isValid: boolean; error?: string } {
-    const result = validatePlatformId(steamId);
-    if (!result.isValid) {
-        return result;
-    }
-    if (result.platform !== 'steam') {
-        return { isValid: false, error: 'Invalid Steam ID. Must be 17 digits starting with 7656119' };
-    }
-    return { isValid: true };
-}
-
-/**
  * Validate file upload
  */
 export function validateFileUpload(file: Express.Multer.File): { isValid: boolean; error?: string } {

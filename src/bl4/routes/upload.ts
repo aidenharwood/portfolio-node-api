@@ -76,7 +76,7 @@ router.post('/upload', upload.single('saveFile'), (req, res) => {
 
     } catch (error) {
         console.error('Error processing save file:', error);
-        sendError(res, 500, 'Failed to decrypt save file. Check your Steam ID and ensure the file is valid.');
+        sendError(res, 500, 'Failed to decrypt save file. Check your ID and ensure the file is valid.');
     }
 });
 
@@ -105,7 +105,7 @@ router.post('/upload-folder', uploadFolder.array('saveFiles', 20), (req, res) =>
         const processedFiles = processSaveFiles(files, steamId);
 
         if (processedFiles.length === 0) {
-            return sendError(res, 400, 'No valid save files could be processed. Check your Steam ID and file validity.');
+            return sendError(res, 400, 'No valid save files could be processed. Check your ID and file validity.');
         }
 
         // Generate a session ID for this folder
@@ -120,7 +120,7 @@ router.post('/upload-folder', uploadFolder.array('saveFiles', 20), (req, res) =>
 
     } catch (error) {
         console.error('Error processing save folder:', error);
-        sendError(res, 500, 'Failed to process save folder. Check your Steam ID and ensure the files are valid.');
+        sendError(res, 500, 'Failed to process save folder. Check your ID and ensure the files are valid.');
     }
 });
 
