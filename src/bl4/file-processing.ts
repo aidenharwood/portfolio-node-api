@@ -129,9 +129,9 @@ export function createZipArchive(
                 name: entryName
             });
 
-            console.log(`Added ${modifiedFile.name} to ZIP (${encryptedSaveData.length} bytes)`);
+            console.log(`[${steamId}] Added ${modifiedFile.name} to ZIP (${encryptedSaveData.length} bytes)`);
         } catch (error) {
-            console.error(`Error processing ${modifiedFile.name}:`, error);
+            console.error(`[${steamId}] Error processing ${modifiedFile.name}:`, error);
             // Continue with other files rather than failing the entire ZIP
         }
     }
@@ -145,7 +145,7 @@ export function createZipArchive(
     });
 
     archive.on('end', () => {
-        console.log(`ZIP archive completed: ${archive.pointer()} bytes`);
+        console.log(`[${steamId}] ZIP archive completed: ${archive.pointer()} bytes`);
     });
 
     // Finalize the archive
