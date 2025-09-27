@@ -8,10 +8,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post('/debug/derive-key', express.json(), (req, res) => {
     try {
-        const { steamId } = req.body;
+        const { steamId, platform } = req.body;
         if (!steamId) return sendError(res, 400, 'steamId required');
-        const key = deriveKey(steamId);
-        return sendSuccess(res, { key: key.toString('hex') });
+        // platform is optional: 'steam' | 'epic' | 'auto'
+        const plat = (platform === 'steam' || platform === 'epic') ? platform : 'auto';
+        const key = deriveKey(steamId, plat as any);
+        return sendSuccess(res, { key: key.toString('hex'), platform: plat });
     } catch (err) {
         return sendError(res, 500, (err as Error).message || 'derive key failed');
     }

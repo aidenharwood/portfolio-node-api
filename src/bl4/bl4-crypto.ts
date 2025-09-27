@@ -615,21 +615,40 @@ export function encodeItemSerial(decodedItem: DecodedItem): string {
 }
 
 /**
- * Derive encryption key from Steam ID
+ * Derive encryption key from an account identifier.
+ * Supports both Steam and Epic styles (matches Python reference):
+ * - epic: uid encoded as utf-16le, xor into base key (no wrap)
+ * - steam: extract digits, convert to 8-byte little-endian, xor into base key with wrap
  */
-export function deriveKey(steamId: string): Buffer {
-    const digits = steamId.replace(/\D/g, '');
-    const sid = BigInt(digits);
-    
-    // Convert to 8-byte little-endian
-    const sidBuffer = Buffer.alloc(8);
-    sidBuffer.writeBigUInt64LE(sid);
-    
+export function deriveKey(uid: string, platform: 'steam' | 'epic' | 'auto' = 'auto'): Buffer {
+    if (!uid) return Buffer.from(BASE_KEY);
+
     const key = Buffer.from(BASE_KEY);
-    for (let i = 0; i < 8; i++) {
-        key[i] ^= sidBuffer[i];
+
+    // Heuristic: if the uid contains digits and no '@', treat as steam when auto
+    const looksLikeSteam = /\d/.test(uid) && !/@/.test(uid);
+    const mode = platform === 'auto' ? (looksLikeSteam ? 'steam' : 'epic') : platform;
+
+    if (mode === 'epic') {
+        // Epic: UTF-16LE bytes XOR'ed into key (no wrap)
+        const wid = Buffer.from(uid.trim(), 'utf16le');
+        const n = Math.min(wid.length, key.length);
+        for (let i = 0; i < n; i++) {
+            key[i] = key[i] ^ wid[i];
+        }
+        return key;
     }
-    
+
+    // Steam: extract digits, convert to 8-byte little-endian, xor into key with wrap
+    const digits = (uid || '').replace(/\D/g, '') || '0';
+    const sidNum = BigInt(digits);
+    const sidBuf = Buffer.alloc(8);
+    sidBuf.writeBigUInt64LE(sidNum);
+
+    for (let i = 0; i < sidBuf.length; i++) {
+        key[i % key.length] = key[i % key.length] ^ sidBuf[i];
+    }
+
     return key;
 }
 
