@@ -3,6 +3,8 @@ import multer from 'multer';
 import uploadRoutes from './routes/upload';
 import downloadRoutes from './routes/download';
 import convertRoutes from './routes/convert';
+import verifyRoutes from './routes/verify';
+import debugRoutes from './routes/debug';
 import infoRoutes from './routes/info';
 import { sendError } from './responses';
 
@@ -12,6 +14,8 @@ const router = express.Router();
 router.use('/', uploadRoutes);
 router.use('/', downloadRoutes);
 router.use('/', convertRoutes);
+router.use('/', verifyRoutes);
+router.use('/', debugRoutes);
 router.use('/', infoRoutes);
 
 // Error handling middleware

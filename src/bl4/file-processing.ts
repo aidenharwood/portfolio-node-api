@@ -120,9 +120,13 @@ export function createZipArchive(
             // Re-encrypt the YAML content back to save file format
             const encryptedSaveData = encryptYamlContentToSav(yamlContent, steamId);
 
-            // Add to ZIP archive
+            // Normalize filename to .sav (some callers may pass .yaml names)
+            const baseName = modifiedFile.name.replace(/\.[^.]+$/i, '')
+            const entryName = `${baseName}.sav`
+
+            // Add to ZIP archive using normalized name
             archive.append(encryptedSaveData, {
-                name: modifiedFile.name
+                name: entryName
             });
 
             console.log(`Added ${modifiedFile.name} to ZIP (${encryptedSaveData.length} bytes)`);

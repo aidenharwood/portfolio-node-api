@@ -13,30 +13,24 @@ export function extractCharacterInfo(yamlData: any, fileName: string): FolderFil
     }
 
     try {
-        console.log(`Processing ${fileName} - Top level keys:`, Object.keys(yamlData));
 
         const characterInfo = { name: '', level: '', className: '' };
 
         // Extract character name from state.char_name
         if (yamlData.state && yamlData.state.char_name) {
             characterInfo.name = yamlData.state.char_name.toString();
-            console.log(`Found name:`, characterInfo.name);
         }
 
         // Extract class from state.class
         if (yamlData.state && yamlData.state.class) {
             characterInfo.className = yamlData.state.class.toString();
-            console.log(`Found class:`, characterInfo.className);
         }
 
         // Extract level from state.experience[0].level
         if (yamlData.state?.experience && Array.isArray(yamlData.state.experience) &&
             yamlData.state.experience[0]?.level !== undefined) {
             characterInfo.level = yamlData.state.experience[0].level.toString();
-            console.log(`Found level:`, characterInfo.level);
         }
-
-        console.log(`Final character info for ${fileName}:`, characterInfo);
         return characterInfo;
 
     } catch (error) {

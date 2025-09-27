@@ -646,49 +646,47 @@ export function decryptSavToYaml(savData: Buffer, steamId: string): Buffer {
     
     let decrypted: Buffer;
     try {
-        const cipher = crypto.createDecipheriv('aes-256-ecb', key, null);
-        cipher.setAutoPadding(false);
-        
-        decrypted = cipher.update(savData);
-        decrypted = Buffer.concat([decrypted, cipher.final()]);
+        const decipher = crypto.createDecipheriv('aes-256-ecb', key, null);
+        // Disable automatic padding so we can emulate Python's try-unpad behavior
+        decipher.setAutoPadding(false);
+
+        const decryptedRaw = Buffer.concat([decipher.update(savData), decipher.final()]);
+
+        // Attempt PKCS7 unpadding manually; if it fails, fall back to raw decrypted bytes
+        let body: Buffer = decryptedRaw;
+        try {
+            const padLen = decryptedRaw[decryptedRaw.length - 1];
+            if (padLen >= 1 && padLen <= 16) {
+                // Verify padding bytes are all equal to padLen
+                const paddingStart = decryptedRaw.length - padLen;
+                let valid = true;
+                for (let i = paddingStart; i < decryptedRaw.length; i++) {
+                    if (decryptedRaw[i] !== padLen) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (valid) {
+                    body = decryptedRaw.slice(0, paddingStart);
+                }
+            }
+        } catch (e) {
+            // If unpad check fails, use raw decrypted bytes (mirrors Python's behavior)
+            body = decryptedRaw;
+        }
+
+        // Decompress with zlib - decompressor will stop at end of zlib stream and ignore trailing checksum/length
+        let yamlData: Buffer;
+        try {
+            yamlData = zlib.inflateSync(body);
+        } catch (error) {
+            throw new Error(`zlib decompression error. This usually indicates an incorrect Steam ID or corrupted file: ${(error as Error).message}`);
+        }
+
+        return yamlData;
     } catch (error) {
         throw new Error(`AES decryption failed. This usually indicates an incorrect Steam ID: ${(error as Error).message}`);
     }
-    
-    // Try to remove PKCS7 padding
-    let body = decrypted;
-    try {
-        const paddingLength = decrypted[decrypted.length - 1];
-        if (paddingLength > 0 && paddingLength <= 16) {
-            // Validate padding is correct PKCS7
-            const paddingBytes = decrypted.slice(decrypted.length - paddingLength);
-            const isValidPadding = paddingBytes.every(byte => byte === paddingLength);
-            
-            if (isValidPadding) {
-                body = decrypted.slice(0, decrypted.length - paddingLength);
-            } else {
-                throw new Error(`Invalid PKCS7 padding detected. This usually indicates an incorrect Steam ID.`);
-            }
-        } else if (paddingLength > 16) {
-            throw new Error(`Invalid PKCS7 padding length (${paddingLength}). This usually indicates an incorrect Steam ID.`);
-        }
-    } catch (error) {
-        if ((error as Error).message.includes('PKCS7') || (error as Error).message.includes('Steam ID')) {
-            throw error; // Re-throw our specific errors
-        }
-        // For other errors, continue with original data
-        console.warn('Warning: Could not remove padding, continuing with original data');
-    }
-    
-    // Decompress with zlib
-    let yamlData: Buffer;
-    try {
-        yamlData = zlib.inflateSync(body);
-    } catch (error) {
-        throw new Error(`zlib decompression error. This usually indicates an incorrect Steam ID or corrupted file: ${(error as Error).message}`);
-    }
-    
-    return yamlData;
 }
 
 /**
@@ -712,34 +710,28 @@ function calculateAdler32(data: Buffer): number {
  * Encrypt YAML back to .sav format
  */
 export function encryptYamlToSav(yamlData: Buffer, steamId: string): Buffer {
-    // Compress with zlib at max level
+    // Compress with zlib (level 9 to match Python reference)
     const compressed = zlib.deflateSync(yamlData, { level: 9 });
-    
-    // Calculate proper adler32 checksum for the original data
+
+    // Calculate adler32 over the uncompressed data (matches Python zlib.adler32)
     const adler32 = calculateAdler32(yamlData);
     const uncompressedLength = yamlData.length;
-    
+
     const adler32Buffer = Buffer.alloc(4);
     adler32Buffer.writeUInt32LE(adler32);
-    
+
     const lengthBuffer = Buffer.alloc(4);
     lengthBuffer.writeUInt32LE(uncompressedLength);
-    
+
     const packed = Buffer.concat([compressed, adler32Buffer, lengthBuffer]);
-    
-    // Add PKCS7 padding
-    const paddingLength = 16 - (packed.length % 16);
-    const padding = Buffer.alloc(paddingLength, paddingLength);
-    const paddedData = Buffer.concat([packed, padding]);
-    
-    // Encrypt with AES-256-ECB
+
+    // Encrypt with AES-256-ECB using PKCS7 padding (let Node handle padding)
     const key = deriveKey(steamId);
     const cipher = crypto.createCipheriv('aes-256-ecb', key, null);
-    cipher.setAutoPadding(false);
-    
-    let encrypted = cipher.update(paddedData);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    
+    cipher.setAutoPadding(true);
+
+    const encrypted = Buffer.concat([cipher.update(packed), cipher.final()]);
+
     return encrypted;
 }
 
@@ -818,6 +810,7 @@ export function processSaveFile(savData: Buffer, steamId: string): SaveData {
     // Decrypt and parse YAML
     const yamlBuffer = decryptSavToYaml(savData, steamId);
     const yamlString = yamlBuffer.toString('utf-8');
+    
     const yamlData = yaml.load(yamlString, { schema: BL4_SCHEMA });
     
     // Find and decode item serials
